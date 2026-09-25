@@ -1,0 +1,11 @@
+{
+  "name": "auth",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "lint": "echo \"Auth lint\"",
+    "typecheck": "echo \"Auth typecheck\"",
+    "test": "echo \"Auth test\""
+  }
+}

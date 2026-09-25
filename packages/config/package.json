@@ -1,0 +1,11 @@
+{
+  "name": "config",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "lint": "echo \"Config lint\"",
+    "typecheck": "echo \"Config typecheck\"",
+    "test": "echo \"Config test\""
+  }
+}

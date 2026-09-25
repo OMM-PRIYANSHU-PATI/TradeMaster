@@ -1,0 +1,457 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  status          String    @default("ACTIVE")
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  profile                 Profile?
+  sessions                Session[]
+  auditLogs               AuditLog[]
+  roles                   Role[]                 @relation("UserRoles")
+  paperAccounts           PaperTradingAccount[]
+  Strategy                Strategy[]
+  BacktestRun             BacktestRun[]
+  JournalEntry            JournalEntry[]
+  savedTraders            SavedTrader[]          @relation("UserSavedTraders")
+  savedBy                 SavedTrader[]          @relation("TargetSavedTraders")
+  challengeParticipations ChallengeParticipant[]
+  achievements            Achievement[]
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  bio             String?  @db.Text
+  experienceLevel String?
+  riskPreference  String?
+  marketsTraded   String[]
+  isVerified      Boolean  @default(false)
+  isPublic        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  createdAt   DateTime     @default(now())
+  permissions Permission[] @relation("RolePermissions")
+  users       User[]       @relation("UserRoles")
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  roles     Role[]   @relation("RolePermissions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  event     String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([event])
+}
+
+model Instrument {
+  id                String   @id @default(cuid())
+  symbol            String
+  name              String
+  assetType         String // STOCK, ETF, CRYPTO
+  exchange          String
+  currency          String   @default("USD")
+  tickSize          Decimal  @db.Decimal(10, 4)
+  quantityPrecision Int      @default(0)
+  pricePrecision    Int      @default(2)
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  prices        MarketPrice[]
+  orders        Order[]
+  positions     Position[]
+  backtests     BacktestRun[]
+  BacktestTrade BacktestTrade[]
+
+  @@unique([symbol, exchange])
+}
+
+model MarketPrice {
+  id           String   @id @default(cuid())
+  instrumentId String
+  price        Decimal  @db.Decimal(18, 8)
+  bid          Decimal? @db.Decimal(18, 8)
+  ask          Decimal? @db.Decimal(18, 8)
+  timestamp    DateTime @default(now())
+  source       String   @default("PAPER") // INTERNAL/PAPER
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@index([instrumentId])
+}
+
+model PaperTradingAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  accountName    String
+  baseCurrency   String   @default("USD")
+  initialBalance Decimal  @db.Decimal(18, 2)
+  cashBalance    Decimal  @db.Decimal(18, 2)
+  status         String   @default("ACTIVE") // ACTIVE, SUSPENDED, CLOSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledger               PaperTradingLedger[]
+  orders               Order[]
+  positions            Position[]
+  backtests            BacktestRun[]
+  challengeParticipant ChallengeParticipant?
+
+  @@unique([userId, accountName])
+}
+
+model PaperTradingLedger {
+  id            String   @id @default(cuid())
+  accountId     String
+  type          String // ACCOUNT_INITIALIZED, BUY_EXECUTION, SELL_EXECUTION, FEE, CASH_ADJUSTMENT
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String   @default("USD")
+  referenceType String? // e.g., "ORDER_FILL"
+  referenceId   String? // e.g., the fillId
+  description   String?
+  createdAt     DateTime @default(now())
+
+  account PaperTradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  accountId        String
+  instrumentId     String
+  clientOrderId    String
+  side             String // BUY, SELL
+  type             String // MARKET, LIMIT
+  quantity         Decimal   @db.Decimal(18, 8)
+  limitPrice       Decimal?  @db.Decimal(18, 8)
+  status           String    @default("PENDING") // PENDING, OPEN, FILLED, PARTIALLY_FILLED, CANCELLED, REJECTED
+  filledQuantity   Decimal   @default(0) @db.Decimal(18, 8)
+  averageFillPrice Decimal   @default(0) @db.Decimal(18, 8)
+  submittedAt      DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  cancelledAt      DateTime?
+
+  account      PaperTradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument   Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  fills        OrderFill[]
+  JournalEntry JournalEntry[]
+
+  @@unique([accountId, clientOrderId])
+  @@index([accountId])
+  @@index([instrumentId])
+}
+
+model OrderFill {
+  id         String   @id @default(cuid())
+  orderId    String
+  quantity   Decimal  @db.Decimal(18, 8)
+  price      Decimal  @db.Decimal(18, 8)
+  fee        Decimal  @db.Decimal(18, 2)
+  executedAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Position {
+  id                String   @id @default(cuid())
+  accountId         String
+  instrumentId      String
+  quantity          Decimal  @db.Decimal(18, 8)
+  averageEntryPrice Decimal  @db.Decimal(18, 8)
+  realizedPnl       Decimal  @default(0) @db.Decimal(18, 2)
+  updatedAt         DateTime @updatedAt
+
+  account      PaperTradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument   Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  JournalEntry JournalEntry[]
+
+  @@unique([accountId, instrumentId])
+}
+
+model Strategy {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  type          String // BUY_AND_HOLD, MOVING_AVERAGE_CROSSOVER, etc.
+  configuration Json
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  backtests    BacktestRun[]
+  JournalEntry JournalEntry[]
+
+  @@index([userId])
+}
+
+model BacktestRun {
+  id             String    @id @default(cuid())
+  userId         String
+  strategyId     String
+  instrumentId   String
+  timeframe      String
+  startDate      DateTime
+  endDate        DateTime
+  initialCapital Decimal   @db.Decimal(18, 8)
+  commissionRate Decimal   @db.Decimal(10, 4)
+  status         String // PENDING, RUNNING, COMPLETED, FAILED
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy   Strategy   @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  trades                BacktestTrade[]
+  equityCurve           BacktestEquityPoint[]
+  metrics               BacktestMetric?
+  PaperTradingAccount   PaperTradingAccount?  @relation(fields: [paperTradingAccountId], references: [id])
+  paperTradingAccountId String?
+
+  @@index([userId])
+  @@index([strategyId])
+  @@index([instrumentId])
+}
+
+model BacktestTrade {
+  id            String   @id @default(cuid())
+  backtestRunId String
+  instrumentId  String
+  side          String // BUY, SELL
+  quantity      Decimal  @db.Decimal(18, 8)
+  entryPrice    Decimal  @db.Decimal(18, 8)
+  exitPrice     Decimal  @db.Decimal(18, 8)
+  entryFee      Decimal  @db.Decimal(18, 8)
+  exitFee       Decimal  @db.Decimal(18, 8)
+  grossPnl      Decimal  @db.Decimal(18, 8)
+  fees          Decimal  @db.Decimal(18, 8)
+  netPnl        Decimal  @db.Decimal(18, 8)
+  openedAt      DateTime
+  closedAt      DateTime
+
+  backtestRun BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+  instrument  Instrument  @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([backtestRunId])
+}
+
+model BacktestEquityPoint {
+  id              String   @id @default(cuid())
+  backtestRunId   String
+  timestamp       DateTime
+  cash            Decimal  @db.Decimal(18, 8)
+  positionValue   Decimal  @db.Decimal(18, 8)
+  equity          Decimal  @db.Decimal(18, 8)
+  drawdown        Decimal  @db.Decimal(18, 8)
+  drawdownPercent Decimal  @db.Decimal(10, 4)
+
+  backtestRun BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+
+  @@index([backtestRunId, timestamp])
+}
+
+model BacktestMetric {
+  id                 String   @id @default(cuid())
+  backtestRunId      String   @unique
+  totalReturn        Decimal  @db.Decimal(18, 8)
+  netPnl             Decimal  @db.Decimal(18, 8)
+  grossProfit        Decimal  @db.Decimal(18, 8)
+  grossLoss          Decimal  @db.Decimal(18, 8)
+  totalFees          Decimal  @db.Decimal(18, 8)
+  winRate            Decimal  @db.Decimal(10, 4)
+  profitFactor       Decimal? @db.Decimal(10, 4)
+  maxDrawdown        Decimal  @db.Decimal(18, 8)
+  maxDrawdownPercent Decimal  @db.Decimal(10, 4)
+  totalTrades        Int
+  winningTrades      Int
+  losingTrades       Int
+  averageWin         Decimal  @db.Decimal(18, 8)
+  averageLoss        Decimal  @db.Decimal(18, 8)
+
+  backtestRun BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+}
+
+model JournalEntry {
+  id              String  @id @default(cuid())
+  userId          String
+  title           String? @db.VarChar(255)
+  notes           String? @db.Text
+  entryReason     String? @db.Text
+  exitReason      String? @db.Text
+  setup           String? @db.Text
+  emotion         String? @db.VarChar(100)
+  confidence      String? @db.VarChar(100)
+  marketCondition String? @db.VarChar(100)
+  mistakes        String? @db.Text
+  ruleAdherence   String? @db.Text
+  reviewType      String  @db.VarChar(50) // TRADE, DAILY, WEEKLY, MONTHLY
+
+  strategyId String?
+  orderId    String?
+  positionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  order    Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  position Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  tags        JournalTag[]
+  attachments JournalAttachment[]
+
+  @@index([userId])
+  @@index([reviewType])
+  @@index([createdAt])
+}
+
+model JournalTag {
+  id             String @id @default(cuid())
+  name           String @db.VarChar(100)
+  journalEntryId String
+  userId         String
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([journalEntryId, name])
+}
+
+model JournalAttachment {
+  id             String   @id @default(cuid())
+  fileUrl        String   @db.Text
+  fileName       String?  @db.VarChar(255)
+  fileType       String?  @db.VarChar(100)
+  journalEntryId String
+  createdAt      DateTime @default(now())
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+}
+
+model SavedTrader {
+  id          String   @id @default(cuid())
+  userId      String
+  savedUserId String
+  createdAt   DateTime @default(now())
+
+  user      User @relation("UserSavedTraders", fields: [userId], references: [id], onDelete: Cascade)
+  savedUser User @relation("TargetSavedTraders", fields: [savedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, savedUserId])
+  @@index([userId])
+  @@index([savedUserId])
+}
+
+enum ChallengeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  ABANDONED
+}
+
+model Challenge {
+  id                  String          @id @default(uuid())
+  title               String
+  description         String
+  status              ChallengeStatus @default(DRAFT)
+  startingCapital     Decimal         @db.Decimal(19, 4)
+  targetReturnPercent Decimal         @db.Decimal(19, 4)
+  maxDrawdownPercent  Decimal         @db.Decimal(19, 4)
+  durationDays        Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ChallengeParticipant[]
+}
+
+model ChallengeParticipant {
+  id          String            @id @default(uuid())
+  userId      String
+  challengeId String
+  accountId   String            @unique
+  status      ParticipantStatus @default(ACTIVE)
+  joinedAt    DateTime          @default(now())
+  completedAt DateTime?
+
+  user      User                @relation(fields: [userId], references: [id])
+  challenge Challenge           @relation(fields: [challengeId], references: [id])
+  account   PaperTradingAccount @relation(fields: [accountId], references: [id])
+
+  @@unique([userId, challengeId])
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String
+  title       String
+  description String
+  earnedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

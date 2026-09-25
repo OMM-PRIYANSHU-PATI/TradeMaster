@@ -1,0 +1,14 @@
+{
+  "name": "types",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "lint": "echo \"Types lint\"",
+    "typecheck": "echo \"Types typecheck\"",
+    "test": "echo \"Types test\""
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}
