@@ -3,12 +3,14 @@ import { prisma, Prisma } from 'database';
 import { OrderIntent } from './models';
 import { PaperExecutionService } from '../../trading/paper-execution.service';
 import { OrderStateService, OrderStatus } from '../../trading/order-state.service';
+import { RiskEngine } from '../../risk/risk.engine';
 
 @Injectable()
 export class PaperExecutionAdapter {
   constructor(
     private paperExecutionService: PaperExecutionService,
-    private orderStateService: OrderStateService
+    private orderStateService: OrderStateService,
+    private riskEngine: RiskEngine
   ) {}
 
   async executeIntent(
@@ -18,20 +20,39 @@ export class PaperExecutionAdapter {
     instrumentId: string,
     executionPrice: Prisma.Decimal,
   ): Promise<void> {
-    if (intent.side !== 'BUY' && intent.side !== 'SELL') return; // HOLD
-    if (intent.quantity.lte(0)) throw new BadRequestException('Invalid quantity');
+    
+
+    const decision = await this.riskEngine.evaluateIntent(
+      intent,
+      sessionId,
+      paperAccountId,
+      instrumentId,
+      executionPrice
+    );
+
+    if (decision.status === 'REJECTED') {
+      return;
+    }
+
+    let finalIntent = intent;
+    if (decision.status === 'MODIFIED' && decision.modifiedIntent) {
+      finalIntent = decision.modifiedIntent;
+    }
+
+    if (finalIntent.side !== 'BUY' && finalIntent.side !== 'SELL') return;
+    if (finalIntent.quantity.lte(0)) return;
 
     return await prisma.$transaction(async (tx) => {
       // 1. Create PENDING Order
-      const clientOrderId = 'v-sess-' + sessionId + '-' + Date.now();
+      const clientOrderId = 'v-sess-' + sessionId + '-' + finalIntent.timestamp.getTime();
       let order = await tx.order.create({
         data: {
           accountId: paperAccountId,
           instrumentId,
           clientOrderId,
-          side: intent.side,
+          side: finalIntent.side,
           type: 'MARKET',
-          quantity: intent.quantity,
+          quantity: finalIntent.quantity,
           status: 'PENDING',
         }
       });

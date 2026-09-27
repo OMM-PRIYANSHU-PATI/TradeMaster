@@ -15,11 +15,12 @@ import { ChallengesModule } from './challenges/challenges.module';
 import { MarketModule } from './market/market.module';
 import { BrokerModule } from './broker/broker.module';
 import { CopyTradingModule } from './copy-trading/copy-trading.module';
+import { RiskModule } from './risk/risk.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import rateLimit from 'express-rate-limit';
 
 @Module({
-  imports: [VirtualStrategyModule, EventEmitterModule.forRoot(), AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule, MarketModule, BrokerModule, CopyTradingModule],
+  imports: [VirtualStrategyModule, EventEmitterModule.forRoot(), AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule, MarketModule, BrokerModule, CopyTradingModule, RiskModule],
   controllers: [AppController, AdminController],
   providers: [AppService],
 })

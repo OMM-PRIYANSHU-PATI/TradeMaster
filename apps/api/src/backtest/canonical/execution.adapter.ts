@@ -2,12 +2,24 @@ import { Prisma } from 'database';
 import { HistoricalBar } from '../interfaces';
 import { OrderIntent, Signal, PositionState, StrategyState, CompiledStrategy, IndicatorEngineInterface } from './models';
 
+export interface CostProfileConfig {
+  brokerageModel: string;
+  brokerageValue: Prisma.Decimal;
+  exchangeFeeModel: string;
+  exchangeFeeValue: Prisma.Decimal;
+  taxModel: string;
+  taxValue: Prisma.Decimal;
+  slippageModel: string;
+  slippageValue: Prisma.Decimal;
+}
+
 export interface ExecutionContext {
   instrumentId: string;
   initialCapital: Prisma.Decimal;
   commissionRate: Prisma.Decimal;
   startDate: Date;
   endDate: Date;
+  costProfile?: CostProfileConfig | null;
 }
 
 export interface ExecutionResult {
@@ -17,6 +29,8 @@ export interface ExecutionResult {
   grossProfit: Prisma.Decimal;
   grossLoss: Prisma.Decimal;
   totalFees: Prisma.Decimal;
+  totalCosts: Prisma.Decimal;
+  totalSlippage: Prisma.Decimal;
   totalTrades: number;
   winningTrades: number;
   losingTrades: number;
@@ -52,6 +66,11 @@ export interface TradeRecord {
   netPnl: Prisma.Decimal;
   openedAt: Date;
   closedAt: Date;
+  totalCosts?: Prisma.Decimal;
+  brokerage?: Prisma.Decimal;
+  exchangeFees?: Prisma.Decimal;
+  taxes?: Prisma.Decimal;
+  slippageCost?: Prisma.Decimal;
 }
 
 export interface ExecutionAdapter {

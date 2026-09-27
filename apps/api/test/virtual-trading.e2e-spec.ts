@@ -35,12 +35,12 @@ describe('Virtual Trading (e2e) - Phase 17', () => {
 
     let ts = Date.now();
     let res = await request(app.getHttpServer()).post('/api/v1/auth/register').send({ email: `vuser1_${ts}@example.com`, password: 'Password123!', firstName: 'A', lastName: 'B' });
-    userToken = (res.headers['set-cookie'] as any)[0].split(';')[0].split('=')[1];
+    userToken = (Array.isArray(res.headers['set-cookie']) ? res.headers['set-cookie'][0] : (res.headers['set-cookie'] || '') as string).split(';')[0].split('=')[1];
     let meRes = await request(app.getHttpServer()).get('/api/v1/auth/me').set('Cookie', `sessionId=${userToken}`);
     userId = meRes.body.id;
 
     res = await request(app.getHttpServer()).post('/api/v1/auth/register').send({ email: `vuser2_${ts}@example.com`, password: 'Password123!', firstName: 'C', lastName: 'D' });
-    user2Token = (res.headers['set-cookie'] as any)[0].split(';')[0].split('=')[1];
+    user2Token = (Array.isArray(res.headers['set-cookie']) ? res.headers['set-cookie'][0] : (res.headers['set-cookie'] || '') as string).split(';')[0].split('=')[1];
     let me2Res = await request(app.getHttpServer()).get('/api/v1/auth/me').set('Cookie', `sessionId=${user2Token}`);
     user2Id = me2Res.body.id;
 

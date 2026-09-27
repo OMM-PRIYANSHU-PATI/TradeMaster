@@ -1,4 +1,4 @@
-﻿import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { prisma, Prisma } from 'database';
 import { HistoricalDataProvider } from './historical-data.provider';
 import { StrategyCompiler } from './canonical/strategy.compiler';
@@ -15,7 +15,7 @@ export class BacktestService {
     private readonly strategyExecutionEngine: StrategyExecutionEngine,
   ) {}
 
-  async createStrategy(userId: string, data: { name: string; description?: string; type: string; configuration: unknown }) {
+  async createStrategy(userId: string, data: any) {
     // Validate strategy configuration at creation time
     this.strategyCompiler.compile({ type: data.type, config: data.configuration }, 'TEMP', '1D', data.type);
     
@@ -26,6 +26,10 @@ export class BacktestService {
         description: data.description,
         type: data.type,
         configuration: data.configuration as Prisma.InputJsonValue,
+        assetClass: data.assetClass,
+        defaultTimeframe: data.defaultTimeframe,
+        tags: data.tags || [],
+        version: 1
       }
     });
   }
@@ -41,7 +45,7 @@ export class BacktestService {
     return s;
   }
 
-  async runBacktest(userId: string, data: { strategyId: string; instrumentId: string; startDate: string; endDate: string; initialCapital: string }) {
+  async runBacktest(userId: string, data: { strategyId: string; instrumentId: string; startDate: string; endDate: string; initialCapital: string; costProfileId?: string }) {
     const strategy = await this.getStrategy(userId, data.strategyId);
     
     // Make sure instrument exists
@@ -59,6 +63,13 @@ export class BacktestService {
       strategy.type
     );
 
+    // Get cost profile if specified
+    let costProfile = null;
+    if (data.costProfileId) {
+      costProfile = await prisma.financialCostProfile.findUnique({ where: { id: data.costProfileId } });
+      if (!costProfile) throw new NotFoundException('Cost profile not found');
+    }
+
     const run = await prisma.backtestRun.create({
       data: {
         userId,
@@ -71,6 +82,7 @@ export class BacktestService {
         commissionRate,
         status: 'RUNNING',
         strategySnapshot: compiledStrategy.rawConfiguration as Prisma.InputJsonValue,
+        costProfileId: costProfile?.id || null,
       }
     });
 
@@ -83,6 +95,16 @@ export class BacktestService {
         commissionRate,
         startDate: run.startDate,
         endDate: run.endDate,
+        costProfile: costProfile ? {
+          brokerageModel: costProfile.brokerageModel,
+          brokerageValue: costProfile.brokerageValue,
+          exchangeFeeModel: costProfile.exchangeFeeModel,
+          exchangeFeeValue: costProfile.exchangeFeeValue,
+          taxModel: costProfile.taxModel,
+          taxValue: costProfile.taxValue,
+          slippageModel: costProfile.slippageModel,
+          slippageValue: costProfile.slippageValue,
+        } : null,
       });
 
       // Save results
@@ -102,7 +124,12 @@ export class BacktestService {
               fees: t.fees,
               netPnl: t.netPnl,
               openedAt: t.openedAt,
-              closedAt: t.closedAt
+              closedAt: t.closedAt,
+              totalCosts: t.totalCosts,
+              brokerage: t.brokerage,
+              exchangeFees: t.exchangeFees,
+              taxes: t.taxes,
+              slippage: t.slippageCost,
             }
           });
         }
@@ -129,6 +156,7 @@ export class BacktestService {
             grossProfit: result.grossProfit,
             grossLoss: result.grossLoss,
             totalFees: result.totalFees,
+            totalCosts: result.totalCosts,
             winRate: result.winRate,
             profitFactor: result.profitFactor,
             maxDrawdown: result.maxDrawdown,
@@ -158,11 +186,15 @@ export class BacktestService {
   }
 
   async getBacktests(userId: string) {
-    return prisma.backtestRun.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+    return prisma.backtestRun.findMany({ 
+      where: { userId }, 
+      orderBy: { createdAt: 'desc' },
+      include: { strategy: true, instrument: true, metrics: true }
+    });
   }
 
   async getBacktest(userId: string, id: string) {
-    const b = await prisma.backtestRun.findUnique({ where: { id }, include: { strategy: true, instrument: true, metrics: true } });
+    const b = await prisma.backtestRun.findUnique({ where: { id }, include: { strategy: true, instrument: true, metrics: true, costProfile: true } });
     if (!b) throw new NotFoundException();
     if (b.userId !== userId) throw new ForbiddenException();
     return b;

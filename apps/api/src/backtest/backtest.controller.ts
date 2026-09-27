@@ -73,7 +73,7 @@ export class StrategyController {
   @Patch(':id')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async updateStrategy(@CurrentUser() user: { id: string }, @Param('id') id: string, @Body() data: UpdateStrategyDto) {
-    const s = await prisma.strategy.findUnique({ where: { id } });
+    const s = await prisma.strategy.findUnique({ where: { id }, include: { _count: { select: { backtests: true, virtualSessions: true } } } });
     if (!s) throw new NotFoundException();
     if (s.userId !== user.id) throw new ForbiddenException();
     
@@ -82,15 +82,36 @@ export class StrategyController {
     const newConfig = data.configuration ?? s.configuration;
     await this.backtestService.validateStrategyConfiguration({ type: newType, config: newConfig }, newType);
 
-    return prisma.strategy.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description,
-        type: data.type,
-        configuration: data.configuration as Prisma.InputJsonValue,
-      }
-    });
+    if (s._count.backtests > 0 || s._count.virtualSessions > 0) {
+      // Create new version
+      return prisma.strategy.create({
+        data: {
+          userId: user.id,
+          name: data.name ?? s.name,
+          description: data.description !== undefined ? data.description : s.description,
+          assetClass: data.assetClass ?? s.assetClass,
+          defaultTimeframe: data.defaultTimeframe ?? s.defaultTimeframe,
+          tags: data.tags ?? s.tags,
+          type: newType,
+          configuration: newConfig as Prisma.InputJsonValue,
+          version: s.version + 1,
+          parentId: s.id
+        }
+      });
+    } else {
+      return prisma.strategy.update({
+        where: { id },
+        data: {
+          name: data.name,
+          description: data.description,
+          assetClass: data.assetClass,
+          defaultTimeframe: data.defaultTimeframe,
+          tags: data.tags,
+          type: data.type,
+          configuration: data.configuration as Prisma.InputJsonValue,
+        }
+      });
+    }
   }
 
   @Delete(':id')

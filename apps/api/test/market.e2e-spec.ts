@@ -12,12 +12,12 @@ describe('Market & Watchlist (e2e)', () => {
   let testUser: { id: string; email: string };
   let otherUser: { id: string; email: string };
   
-  let testInstrument: any;
-  let decInstrument: any;
-  let tinyInstrument: any;
-  let errInstrument: any;
-  let timeoutInstrument: any;
-  let malformedInstrument: any;
+  let testInstrument: { id: string };
+  let decInstrument: { id: string };
+  let tinyInstrument: { id: string };
+  let errInstrument: { id: string };
+  let timeoutInstrument: { id: string };
+  let malformedInstrument: { id: string };
   
   let watchlistId: string;
   let uniqueSuffix: string;

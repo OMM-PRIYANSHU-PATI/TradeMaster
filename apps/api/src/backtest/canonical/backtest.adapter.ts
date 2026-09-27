@@ -12,14 +12,15 @@ import { CompiledStrategy, PositionState, StrategyState, Signal, OrderIntent, Si
 import { StrategyExecutionEngine } from './strategy-execution.engine';
 import { IndicatorEngine } from '../indicators/indicator.engine';
 import { PnlService } from '../../trading/pnl.service';
-import { FeeService } from '../../trading/fee.service';
+import { FinancialCostEngine } from '../../trading/financial-cost.engine';
+import type { CostCalculationRequest } from '../../trading/financial-cost.engine';
 
 @Injectable()
 export class BacktestAdapter implements ExecutionAdapter {
   constructor(
     private readonly strategyEngine: StrategyExecutionEngine,
     private readonly pnlService: PnlService,
-    private readonly feeService: FeeService
+    private readonly financialCostEngine: FinancialCostEngine
   ) {}
 
   async execute(
@@ -61,7 +62,7 @@ export class BacktestAdapter implements ExecutionAdapter {
           positionOpenedAt,
           accumulatedEntryFees,
           cash,
-          context.commissionRate,
+          context.costProfile,
           context.instrumentId
         );
         
@@ -124,7 +125,7 @@ export class BacktestAdapter implements ExecutionAdapter {
         positionOpenedAt,
         accumulatedEntryFees,
         cash,
-        context.commissionRate,
+        context.costProfile,
         context.instrumentId
       );
 
@@ -157,14 +158,20 @@ export class BacktestAdapter implements ExecutionAdapter {
 
     const maxDrawdownPercent = maxEquity.isZero() ? new Prisma.Decimal(0) : maxDrawdown.div(maxEquity).mul(100);
 
+    // Calculate metrics using the new PerformanceAnalyticsService
+    // This will be imported and used when available
+
     // Calculate metrics
     let grossProfit = new Prisma.Decimal(0);
     let grossLoss = new Prisma.Decimal(0);
     let winCount = 0;
     let totalFees = new Prisma.Decimal(0);
+    let totalSlippage = new Prisma.Decimal(0);
+    let totalCosts = new Prisma.Decimal(0);
 
     for (const t of trades) {
       totalFees = totalFees.add(t.fees);
+      totalCosts = totalCosts.add(t.totalCosts || t.fees);
 
       if (t.grossPnl.gt(0)) grossProfit = grossProfit.add(t.grossPnl);
       else grossLoss = grossLoss.add(t.grossPnl);
@@ -185,6 +192,8 @@ export class BacktestAdapter implements ExecutionAdapter {
       grossProfit,
       grossLoss,
       totalFees,
+      totalCosts,
+      totalSlippage,
       totalTrades: trades.length,
       winningTrades: winCount,
       losingTrades: loseCount,
@@ -207,7 +216,7 @@ export class BacktestAdapter implements ExecutionAdapter {
     positionOpenedAt: Date | null,
     accumulatedEntryFees: Prisma.Decimal,
     cash: Prisma.Decimal,
-    commissionRate: Prisma.Decimal,
+    costProfile: ExecutionContext['costProfile'],
     instrumentId: string
   ): {
     newCash: Prisma.Decimal;
@@ -219,11 +228,23 @@ export class BacktestAdapter implements ExecutionAdapter {
   } {
     const qty = signal.quantity!;
 
-    if (signal.type === 'BUY') {
-      const cost = qty.mul(execPrice);
-      const fee = this.feeService.calculateFee('BUY', qty, execPrice);
+    // Use FinancialCostEngine for cost calculation
+    const costRequest: CostCalculationRequest = {
+      side: signal.type === 'BUY' ? 'BUY' : 'SELL',
+      quantity: qty,
+      expectedPrice: execPrice,
+      costProfile: costProfile || null,
+    };
 
-      if (!cash.gte(cost.add(fee))) {
+    const costResult = this.financialCostEngine.calculateCosts(costRequest);
+    const finalExecPrice = costResult.executionPrice;
+    const { brokerage, exchangeFees, taxes, slippageCost, totalCosts } = costResult.breakdown;
+
+    if (signal.type === 'BUY') {
+      const cost = qty.mul(finalExecPrice);
+      const totalCost = cost.add(totalCosts);
+
+      if (!cash.gte(totalCost)) {
         // Insufficient cash - return unchanged state
         return {
           newCash: cash,
@@ -234,10 +255,10 @@ export class BacktestAdapter implements ExecutionAdapter {
         };
       }
 
-      const newAvgPrice = this.pnlService.calculateNewAverageEntry(positionQuantity, averageEntryPrice, qty, execPrice);
+      const newAvgPrice = this.pnlService.calculateNewAverageEntry(positionQuantity, averageEntryPrice, qty, finalExecPrice);
       const newPositionQty = positionQuantity.add(qty);
-      const newCash = cash.sub(cost).sub(fee);
-      const newAccumulatedFees = accumulatedEntryFees.add(fee);
+      const newCash = cash.sub(totalCost);
+      const newAccumulatedFees = accumulatedEntryFees.add(totalCosts);
       const newOpenedAt = positionOpenedAt ?? new Date(); // Use current time as fallback
 
       return {
@@ -259,17 +280,17 @@ export class BacktestAdapter implements ExecutionAdapter {
         };
       }
 
-      const grossValue = qty.mul(execPrice);
-      const exitFee = this.feeService.calculateFee('SELL', qty, execPrice);
+      const grossValue = qty.mul(finalExecPrice);
+      const netProceeds = grossValue.sub(totalCosts);
 
       // Allocate entry fees proportionally
       const allocatedEntryFee = accumulatedEntryFees.mul(qty).div(positionQuantity);
       const newAccumulatedEntryFees = accumulatedEntryFees.sub(allocatedEntryFee);
 
-      const realizedPnl = this.pnlService.calculateRealizedPnl(qty, averageEntryPrice, execPrice);
-      const newCash = cash.add(grossValue).sub(exitFee);
+      const realizedPnl = this.pnlService.calculateRealizedPnl(qty, averageEntryPrice, finalExecPrice);
+      const newCash = cash.add(netProceeds);
 
-      const totalFees = allocatedEntryFee.add(exitFee);
+      const totalFees = allocatedEntryFee.add(totalCosts);
       const netPnl = realizedPnl.sub(totalFees);
 
       const trade: TradeRecord = {
@@ -277,14 +298,19 @@ export class BacktestAdapter implements ExecutionAdapter {
         side: 'BUY',
         quantity: qty,
         entryPrice: averageEntryPrice,
-        exitPrice: execPrice,
+        exitPrice: finalExecPrice,
         grossPnl: realizedPnl,
         entryFee: allocatedEntryFee,
-        exitFee: exitFee,
+        exitFee: totalCosts,
         fees: totalFees,
         netPnl: netPnl,
         openedAt: positionOpenedAt!,
         closedAt: new Date(), // Will be set by caller
+        totalCosts: totalCosts,
+        brokerage: brokerage,
+        exchangeFees: exchangeFees,
+        taxes: taxes,
+        slippageCost: slippageCost,
       };
 
       const newPositionQty = positionQuantity.sub(qty);
@@ -311,3 +337,4 @@ export class BacktestAdapter implements ExecutionAdapter {
     };
   }
 }
+

@@ -1,0 +1,36 @@
+enum CostModelType {
+  NONE
+  PERCENTAGE
+  FIXED
+  PER_UNIT
+}
+
+model FinancialCostProfile {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  
+  brokerageModel   CostModelType
+  brokerageValue   Decimal  @db.Decimal(10, 4)
+  
+  exchangeFeeModel CostModelType
+  exchangeFeeValue Decimal  @db.Decimal(10, 4)
+  
+  taxModel         CostModelType
+  taxValue         Decimal  @db.Decimal(10, 4)
+  
+  slippageModel    CostModelType
+  slippageValue    Decimal  @db.Decimal(10, 4)
+  
+  effectiveFrom    DateTime @default(now())
+  active           Boolean  @default(true)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  backtestRuns      BacktestRun[]
+  paperAccounts     PaperTradingAccount[]
+}

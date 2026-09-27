@@ -1,3 +1,4 @@
+import { ZodHistoryBuffer, ZodStrategySnapshot } from './virtual-trading.schemas';
 import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { prisma, Prisma } from 'database';
 import { StrategyCompiler } from '../backtest/canonical/strategy.compiler';
@@ -93,7 +94,7 @@ export class VirtualStrategyService {
     // In PostgreSQL, row locking via SELECT FOR UPDATE helps.
     return await prisma.$transaction(async (tx) => {
       // Lock the session row to prevent concurrent evaluation
-      const sessions = await tx.$queryRaw<any[]>`SELECT * FROM "VirtualStrategySession" WHERE id = ${sessionId} AND "userId" = ${userId} FOR UPDATE`;
+      const sessions = await tx.$queryRaw<{ id: string, userId: string, strategySnapshot: Prisma.JsonValue, instrumentId: string, timeframe: string, paperAccountId: string }[]>`SELECT * FROM "VirtualStrategySession" WHERE id = ${sessionId} AND "userId" = ${userId} FOR UPDATE`;
       if (!sessions || sessions.length === 0) throw new NotFoundException('Session not found');
       
       const session = await tx.virtualStrategySession.findUnique({ where: { id: sessionId } });
@@ -112,7 +113,8 @@ export class VirtualStrategyService {
       }
 
       // Compile snapshot
-      const compiled = this.strategyCompiler.compile(session.strategySnapshot as unknown as { type: string; config: unknown; }, 'VIRTUAL', session.timeframe, 'VIRTUAL');
+      const parsedSnapshot = ZodStrategySnapshot.parse(session.strategySnapshot);
+      const compiled = this.strategyCompiler.compile(parsedSnapshot as { type: string; config: unknown; }, 'VIRTUAL', session.timeframe, 'VIRTUAL');
 
       // Load position
       const position = await tx.position.findUnique({

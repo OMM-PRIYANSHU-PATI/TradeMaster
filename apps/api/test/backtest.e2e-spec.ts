@@ -667,7 +667,7 @@ import { prisma, Prisma } from 'database';
       });
 
       const getP = await request(app.getHttpServer()).get(`/api/v1/backtests/${run1.id}`).set('Cookie', `sessionId=${userCookie}`);
-      expect((getP.body.strategySnapshot as any).config.quantity).toBe('5');
+      expect((getP.body.strategySnapshot as { config: { quantity: string } }).config.quantity).toBe('5');
     });
   });
 });

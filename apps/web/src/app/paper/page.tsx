@@ -123,7 +123,7 @@ export default function PaperDashboard() {
         <h2 className="text-xl font-bold mb-4">Trade</h2>
         <div className="flex gap-4 items-center flex-wrap">
           <select value={selectedInst} onChange={e => setSelectedInst(e.target.value)} className="border p-2">
-            {instruments.map(i => <option key={i.id} value={i.id}>{i.symbol} (${i.currentPrice || '---'})</option>)}
+            {(instruments as any[]).map(i => <option key={i.id} value={i.id}>{i.symbol} (${i.currentPrice || '---'})</option>)}
           </select>
           <select value={side} onChange={e => setSide(e.target.value)} className="border p-2">
             <option value="BUY">BUY</option>
@@ -169,7 +169,7 @@ export default function PaperDashboard() {
       <div className="border p-4 rounded">
         <h2 className="text-xl font-bold">Ledger</h2>
         <ul>
-          {ledger.map(l => (
+          {(ledger as any[]).map(l => (
             <li key={l.id} className="mb-1 text-sm border-b py-1">
               {new Date(l.createdAt).toLocaleString()} | {l.type} | Amount: ${l.amount} | {l.description}
             </li>

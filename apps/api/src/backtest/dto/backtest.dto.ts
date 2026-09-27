@@ -1,4 +1,4 @@
-﻿import { IsString, IsNotEmpty, IsEnum, IsObject, ValidateNested, IsOptional, IsNumberString, IsDateString, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsObject, ValidateNested, IsOptional, IsNumberString, IsDateString, IsIn, IsUUID, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum StrategyType {
@@ -19,6 +19,19 @@ export class CreateStrategyDto {
   @IsOptional()
   description?: string;
 
+  @IsString()
+  @IsOptional()
+  assetClass?: string;
+
+  @IsString()
+  @IsOptional()
+  defaultTimeframe?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+
   @IsEnum(StrategyType)
   @IsIn([StrategyType.BUY_AND_HOLD, StrategyType.MOVING_AVERAGE_CROSSOVER, StrategyType.RSI_THRESHOLD, StrategyType.MACD_CROSSOVER, StrategyType.BOLLINGER_BAND, StrategyType.CUSTOM_RULE_COMBINATION], { message: 'Strategy type not implemented yet' })
   type: StrategyType;
@@ -36,6 +49,19 @@ export class UpdateStrategyDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  assetClass?: string;
+
+  @IsString()
+  @IsOptional()
+  defaultTimeframe?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
 
   @IsEnum(StrategyType)
   @IsOptional()
@@ -64,4 +90,8 @@ export class RunBacktestDto {
 
   @IsNumberString()
   initialCapital: string;
+
+  @IsUUID()
+  @IsOptional()
+  costProfileId?: string;
 }
