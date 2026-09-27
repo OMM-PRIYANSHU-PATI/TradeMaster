@@ -102,19 +102,19 @@ export default function StrategiesCreatePage() {
           <div className="space-y-4">
             <div className="grid grid-cols-[120px_1fr] gap-4">
               <div className="text-gray-500 font-medium">Name</div>
-              <div className="font-medium text-gray-900 dark:text-gray-100">{(generatedStrategy as any).name}</div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).name}</div>
               
               <div className="text-gray-500 font-medium">Entry Logic</div>
-              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as any).entry}</div>
+              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).entry}</div>
               
               <div className="text-gray-500 font-medium">Exit Logic</div>
-              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as any).exit}</div>
+              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).exit}</div>
               
               <div className="text-gray-500 font-medium">Risk Mgmt</div>
-              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as any).risk}</div>
+              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).risk}</div>
               
               <div className="text-gray-500 font-medium">Assets</div>
-              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as any).assets} ({(generatedStrategy as any).timeframe})</div>
+              <div className="text-gray-800 dark:text-gray-300">{(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).assets} ({(generatedStrategy as {name: string, entry: string, exit: string, risk: string, assets: string, timeframe: string}).timeframe})</div>
             </div>
           </div>
 

@@ -36,7 +36,7 @@ export default function ChallengesPage() {
         const err = await res.json();
         setJoinStatus(prev => ({ ...prev, [id]: err.message || 'Failed to join' }));
       }
-    } catch (e) {
+    } catch (_e) {
       setJoinStatus(prev => ({ ...prev, [id]: 'Error joining' }));
     }
   };

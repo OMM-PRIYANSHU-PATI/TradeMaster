@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Plus, X, BarChart2, TrendingDown } from 'lucide-react';
+import { X, BarChart2, TrendingDown } from 'lucide-react';
 
 const DUMMY_STRATEGIES = [
   { id: '1', name: 'Momentum Breakout', return: '+45.2%', cagr: '21.5%', sharpe: '1.8', maxDd: '-12.4%', winRate: '62%', pf: '1.9', trades: 145 },

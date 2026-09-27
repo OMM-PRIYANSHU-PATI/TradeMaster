@@ -9,7 +9,7 @@ import {
 
 export default function BacktestStudio() {
   // Dummy state for demonstration
-  const [isRunning, setIsRunning] = useState(false);
+  const [, setIsRunning] = useState(false);
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-slate-900 text-slate-300 font-sans text-sm">
