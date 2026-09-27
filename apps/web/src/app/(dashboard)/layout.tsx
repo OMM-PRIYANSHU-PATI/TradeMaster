@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   
   const navigation = [
-    { name: 'Home', href: '/', icon: Home },
+    { name: 'Feed', href: '/feed', icon: Home },
     { name: 'Discover', href: '/discover', icon: Compass },
     { name: 'Markets', href: '/markets', icon: BarChart2 },
     { name: 'Strategies', href: '/strategies', icon: Layers },
