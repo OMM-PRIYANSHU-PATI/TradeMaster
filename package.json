@@ -16,5 +16,8 @@
     "prisma": "5.10.2",
     "turbo": "^2.1.0"
   },
-  "packageManager": "pnpm@12.6.0"
+  "packageManager": "pnpm@12.6.0",
+  "prisma": {
+    "schema": "packages/database/prisma/schema.prisma"
+  }
 }
