@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate --schema=./prisma/schema.prisma",
     "db:push": "prisma db push",
     "lint": "eslint \"**/*.ts\"",
     "build": "tsc",

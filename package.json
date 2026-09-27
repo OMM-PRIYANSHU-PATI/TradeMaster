@@ -10,7 +10,7 @@
     "test": "turbo run test",
     "test:unit": "turbo run test:unit",
     "test:integration": "turbo run test:integration",
-    "postinstall": "prisma generate --schema=packages/database/prisma/schema.prisma"
+    "postinstall": "pnpm --filter database run db:generate"
   },
   "devDependencies": {
     "turbo": "^2.1.0"
