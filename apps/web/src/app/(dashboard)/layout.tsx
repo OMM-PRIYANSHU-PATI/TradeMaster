@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className="w-64 border-r border-neutral-800 bg-neutral-950/50 backdrop-blur flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-neutral-800">
-          <h1 className="text-xl font-bold tracking-tight text-white">TRADEMASTER</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">TRADE SOCIAL</h1>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navigation.map((item) => {
@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-4 border-t border-neutral-800">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center">
-              <span className="text-xs font-medium text-neutral-400">TM</span>
+              <span className="text-xs font-medium text-neutral-400">TS</span>
             </div>
             <div>
               <p className="text-sm font-medium text-white">Profile</p>
