@@ -24,6 +24,10 @@ describe('Journal API (e2e)', () => {
     await prisma.position.deleteMany({});
     await prisma.paperTradingAccount.deleteMany({});
     await prisma.marketPrice.deleteMany({});
+    await prisma.brokerFill.deleteMany({});
+    await prisma.brokerOrder.deleteMany({});
+    await prisma.brokerAccount.deleteMany({});
+    await prisma.brokerConnection.deleteMany({});
     await prisma.instrument.deleteMany({});
     await prisma.strategy.deleteMany({});
     await prisma.session.deleteMany({});

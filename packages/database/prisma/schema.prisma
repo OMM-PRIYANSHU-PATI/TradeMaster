@@ -28,6 +28,15 @@ model User {
   savedBy                 SavedTrader[]          @relation("TargetSavedTraders")
   challengeParticipations ChallengeParticipant[]
   achievements            Achievement[]
+  Watchlist               Watchlist[]
+  brokerConnections       BrokerConnection[]
+
+  following     Follow[]            @relation("UserFollowing")
+  followers     Follow[]            @relation("UserFollowers")
+  copyConfigs   CopyConfiguration[] @relation("UserCopyConfigs")
+  sourceConfigs CopyConfiguration[] @relation("SourceCopyConfigs")
+  copyEvents    CopyEvent[]         @relation("UserCopyEvents")
+  copyTrades    CopyTrade[]         @relation("FollowerCopyTrades")
 }
 
 model Profile {
@@ -111,6 +120,9 @@ model Instrument {
   positions     Position[]
   backtests     BacktestRun[]
   BacktestTrade BacktestTrade[]
+  WatchlistItem WatchlistItem[]
+  BrokerOrder   BrokerOrder[]
+  CopyEvent     CopyEvent[]
 
   @@unique([symbol, exchange])
 }
@@ -146,6 +158,9 @@ model PaperTradingAccount {
   positions            Position[]
   backtests            BacktestRun[]
   challengeParticipant ChallengeParticipant?
+
+  targetCopyConfigs CopyConfiguration[]
+  targetCopyTrades  CopyTrade[]
 
   @@unique([userId, accountName])
 }
@@ -186,6 +201,9 @@ model Order {
   instrument   Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
   fills        OrderFill[]
   JournalEntry JournalEntry[]
+
+  copyEvents CopyEvent[]
+  copyTrades CopyTrade[] @relation("TargetCopyOrder")
 
   @@unique([accountId, clientOrderId])
   @@index([accountId])
@@ -454,4 +472,190 @@ model Achievement {
   earnedAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WatchlistItem[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model WatchlistItem {
+  id           String   @id @default(cuid())
+  watchlistId  String
+  instrumentId String
+  addedAt      DateTime @default(now())
+
+  watchlist  Watchlist  @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, instrumentId])
+}
+
+model BrokerConnection {
+  id                   String  @id @default(cuid())
+  userId               String
+  provider             String
+  externalAccountId    String?
+  status               String // CONNECTED, EXPIRED, REVOKED, ERROR, DISCONNECTED
+  liveExecutionEnabled Boolean @default(false)
+
+  encryptedAccessToken  String? @db.Text
+  encryptedRefreshToken String? @db.Text
+
+  connectedAt  DateTime  @default(now())
+  lastSyncedAt DateTime?
+  revokedAt    DateTime?
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerAccounts BrokerAccount[]
+
+  @@index([userId])
+}
+
+model BrokerAccount {
+  id                 String  @id @default(cuid())
+  brokerConnectionId String
+  externalAccountId  String
+  name               String?
+  cashBalance        Decimal @db.Decimal(18, 8)
+  equityValue        Decimal @db.Decimal(18, 8)
+
+  brokerConnection BrokerConnection @relation(fields: [brokerConnectionId], references: [id], onDelete: Cascade)
+  brokerOrders     BrokerOrder[]
+
+  @@unique([brokerConnectionId, externalAccountId])
+}
+
+model BrokerOrder {
+  id              String @id @default(cuid())
+  brokerAccountId String
+  externalOrderId String
+  clientOrderId   String @unique
+  instrumentId    String
+
+  side   String // BUY, SELL
+  type   String // MARKET, LIMIT, STOP, STOP_LIMIT
+  status String // PENDING, SUBMITTED, OPEN, PARTIALLY_FILLED, FILLED, CANCEL_PENDING, CANCELLED, REJECTED, EXPIRED, UNKNOWN
+
+  quantity         Decimal  @db.Decimal(18, 8)
+  filledQuantity   Decimal  @default(0) @db.Decimal(18, 8)
+  limitPrice       Decimal? @db.Decimal(18, 8)
+  stopPrice        Decimal? @db.Decimal(18, 8)
+  averageFillPrice Decimal? @db.Decimal(18, 8)
+
+  errorMessage String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brokerAccount BrokerAccount @relation(fields: [brokerAccountId], references: [id], onDelete: Cascade)
+  instrument    Instrument    @relation(fields: [instrumentId], references: [id])
+  fills         BrokerFill[]
+
+  @@unique([brokerAccountId, externalOrderId])
+  @@index([clientOrderId])
+}
+
+model BrokerFill {
+  id             String @id @default(cuid())
+  brokerOrderId  String
+  externalFillId String
+
+  quantity Decimal @db.Decimal(18, 8)
+  price    Decimal @db.Decimal(18, 8)
+  fee      Decimal @default(0) @db.Decimal(18, 8)
+
+  filledAt DateTime
+
+  brokerOrder BrokerOrder @relation(fields: [brokerOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([brokerOrderId, externalFillId])
+}
+
+model Follow {
+  id             String   @id @default(cuid())
+  followerUserId String
+  followedUserId String
+  createdAt      DateTime @default(now())
+
+  follower User @relation("UserFollowing", fields: [followerUserId], references: [id], onDelete: Cascade)
+  followed User @relation("UserFollowers", fields: [followedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([followerUserId, followedUserId])
+  @@index([followerUserId])
+  @@index([followedUserId])
+}
+
+model CopyConfiguration {
+  id                String   @id @default(cuid())
+  followerUserId    String
+  sourceUserId      String
+  targetAccountId   String
+  enabled           Boolean  @default(true)
+  allocationPercent Decimal? @db.Decimal(10, 4)
+  maxDrawdown       Decimal? @db.Decimal(10, 4)
+  maxExposure       Decimal? @db.Decimal(18, 8)
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  follower      User                @relation("UserCopyConfigs", fields: [followerUserId], references: [id], onDelete: Cascade)
+  source        User                @relation("SourceCopyConfigs", fields: [sourceUserId], references: [id], onDelete: Cascade)
+  targetAccount PaperTradingAccount @relation(fields: [targetAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([followerUserId, sourceUserId])
+  @@index([sourceUserId])
+}
+
+model CopyEvent {
+  id            String    @id @default(cuid())
+  sourceUserId  String
+  sourceOrderId String
+  instrumentId  String
+  side          String
+  type          String
+  quantity      Decimal   @db.Decimal(18, 8)
+  price         Decimal?  @db.Decimal(18, 8)
+  status        String    @default("PENDING")
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
+
+  sourceUser  User       @relation("UserCopyEvents", fields: [sourceUserId], references: [id], onDelete: Cascade)
+  sourceOrder Order      @relation(fields: [sourceOrderId], references: [id], onDelete: Cascade)
+  instrument  Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  copyTrades CopyTrade[]
+
+  @@unique([sourceOrderId])
+  @@index([sourceUserId])
+  @@index([status])
+}
+
+model CopyTrade {
+  id              String    @id @default(cuid())
+  copyEventId     String
+  followerUserId  String
+  targetAccountId String
+  targetOrderId   String?
+  status          String    @default("PENDING")
+  errorMessage    String?   @db.Text
+  createdAt       DateTime  @default(now())
+  executedAt      DateTime?
+
+  copyEvent     CopyEvent           @relation(fields: [copyEventId], references: [id], onDelete: Cascade)
+  followerUser  User                @relation("FollowerCopyTrades", fields: [followerUserId], references: [id], onDelete: Cascade)
+  targetAccount PaperTradingAccount @relation(fields: [targetAccountId], references: [id], onDelete: Cascade)
+  targetOrder   Order?              @relation("TargetCopyOrder", fields: [targetOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([copyEventId, targetAccountId])
+  @@index([followerUserId])
 }

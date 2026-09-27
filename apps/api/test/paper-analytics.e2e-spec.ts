@@ -33,6 +33,10 @@ describe('Paper Analytics API (e2e)', () => {
     await prisma.order.deleteMany({});
     await prisma.position.deleteMany({});
     await prisma.paperTradingAccount.deleteMany({});
+    await prisma.brokerFill.deleteMany({});
+    await prisma.brokerOrder.deleteMany({});
+    await prisma.brokerAccount.deleteMany({});
+    await prisma.brokerConnection.deleteMany({});
     await prisma.marketPrice.deleteMany({});
     await prisma.instrument.deleteMany({});
     await prisma.session.deleteMany({});

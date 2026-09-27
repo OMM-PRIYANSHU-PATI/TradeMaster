@@ -11,10 +11,14 @@ import { JournalModule } from './journal/journal.module';
 import { TradersModule } from './traders/traders.module';
 import { AiModule } from './ai/ai.module';
 import { ChallengesModule } from './challenges/challenges.module';
+import { MarketModule } from './market/market.module';
+import { BrokerModule } from './broker/broker.module';
+import { CopyTradingModule } from './copy-trading/copy-trading.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import rateLimit from 'express-rate-limit';
 
 @Module({
-  imports: [AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule],
+  imports: [EventEmitterModule.forRoot(), AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule, MarketModule, BrokerModule, CopyTradingModule],
   controllers: [AppController, AdminController],
   providers: [AppService],
 })
@@ -41,3 +45,5 @@ export class AppModule implements NestModule {
       .forRoutes('api/v1/ai/*');
   }
 }
+
+

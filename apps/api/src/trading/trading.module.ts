@@ -1,4 +1,4 @@
-﻿import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { FeeService } from './fee.service';
 import { PnlService } from './pnl.service';
 import { MarketDataService } from './market-data.service';
@@ -19,7 +19,7 @@ import { TradingController } from './trading.controller';
     OrderStateService
   ],
   controllers: [TradingController],
-  exports: [PaperAccountService]
+  exports: [PaperAccountService, PaperExecutionService]
 })
 export class TradingModule implements OnModuleInit {
   constructor(

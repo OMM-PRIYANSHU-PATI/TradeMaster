@@ -1,4 +1,5 @@
-﻿import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { prisma, Prisma } from 'database';
 import { FeeService } from './fee.service';
 import { PnlService } from './pnl.service';
@@ -13,7 +14,8 @@ export class PaperExecutionService {
     private feeService: FeeService,
     private pnlService: PnlService,
     private marketDataService: MarketDataService,
-    private orderStateService: OrderStateService
+    private orderStateService: OrderStateService,
+    private eventEmitter: EventEmitter2
   ) {}
 
   async getOrders(userId: string, accountId: string) {
@@ -216,10 +218,15 @@ export class PaperExecutionService {
     this.orderStateService.validateTransition(order.status as OrderStatus, 'FILLED');
     const updatedOrder = await tx.order.update({
       where: { id: order.id },
-      data: { status: 'FILLED', filledQuantity: quantity, averageFillPrice: executionPrice }
+      data: { status: 'FILLED', filledQuantity: quantity, averageFillPrice: executionPrice },
+      include: { account: true, instrument: true }
     });
 
     const updatedAccount = await tx.paperTradingAccount.findUnique({ where: { id: account.id } });
+    
+    // Fire the event (note: it fires inside the promise map, but that's okay, event listener can handle it asynchronously)
+    this.eventEmitter.emit('paper-order.executed', updatedOrder);
+
     return { order: updatedOrder, fill, position, accountCash: updatedAccount!.cashBalance };
   }
 }
