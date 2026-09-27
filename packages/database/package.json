@@ -7,8 +7,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "lint": "eslint \"**/*.ts\"",
-    "build": "tsc", "typecheck": "tsc --noEmit",
-    "test": "echo \"Database test\""
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Database test\"",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2"
