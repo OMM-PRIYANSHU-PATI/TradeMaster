@@ -65,7 +65,7 @@ export default function NewStrategyBuilder() {
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 800));
       setSuccess(true);
-    } catch (_err) {
+    } catch {
       setError('Failed to save strategy. Please try again.');
     } finally {
       setIsSaving(false);
