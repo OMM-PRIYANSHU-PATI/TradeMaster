@@ -255,7 +255,7 @@ describe('AI API – Phase 10 (e2e)', () => {
     expect(Number(buyRes.body.fill.fee)).toBe(2);
     expect(Number(buyRes.body.fill.price)).toBe(200);
 
-    // 4. User A requests trade review → 200
+    // 4. User A requests trade review on BUY leg → 200
     const reviewRes = await request(app.getHttpServer())
       .post(`/api/v1/ai/trades/${buyOrderId}/review`)
       .set('Cookie', `sessionId=${userToken}`)
@@ -269,8 +269,38 @@ describe('AI API – Phase 10 (e2e)', () => {
     expect(capturedContents).toContain('"quantity":10');
     expect(capturedContents).toContain('"entryPrice":200');
     expect(capturedContents).toContain('"fees":2');
+    expect(capturedContents).toContain('UNAVAILABLE');
 
-    // 6. User B requests same trade → 404 (IDOR)
+    // 6. Change market price to $210
+    await request(app.getHttpServer())
+      .post(`/api/v1/paper/market-data/instruments/${instr.id}/prices`)
+      .set('Cookie', `sessionId=${userToken}`)
+      .send({ price: '210' })
+      .expect(201);
+
+    // 7. Place MARKET SELL for 10 shares
+    const sellRes = await request(app.getHttpServer())
+      .post(`/api/v1/paper/accounts/${accId}/orders`)
+      .set('Cookie', `sessionId=${userToken}`)
+      .send({ instrumentId: instr.id, side: 'SELL', type: 'MARKET', quantity: '10' })
+      .expect(201);
+      
+    const sellOrderId = sellRes.body.order.id;
+    // Expected: 10 shares * $210 = $2100. Fee = $2.10
+    expect(Number(sellRes.body.fill.fee)).toBe(2.1);
+    expect(Number(sellRes.body.fill.price)).toBe(210);
+
+    // 8. Review the SELL leg
+    await request(app.getHttpServer())
+      .post(`/api/v1/ai/trades/${sellOrderId}/review`)
+      .set('Cookie', `sessionId=${userToken}`)
+      .expect(200);
+      
+    expect(capturedContents).toContain('"side":"SELL"');
+    expect(capturedContents).toContain('"entryPrice":210'); // For the SELL order leg, averageFillPrice is 210
+    expect(capturedContents).toContain('"fees":2.1');
+
+    // 9. User B requests same trade → 404 (IDOR)
     await request(app.getHttpServer())
       .post(`/api/v1/ai/trades/${buyOrderId}/review`)
       .set('Cookie', `sessionId=${userBToken}`)
