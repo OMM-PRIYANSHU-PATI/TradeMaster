@@ -37,6 +37,7 @@ model User {
   sourceConfigs CopyConfiguration[] @relation("SourceCopyConfigs")
   copyEvents    CopyEvent[]         @relation("UserCopyEvents")
   copyTrades    CopyTrade[]         @relation("FollowerCopyTrades")
+  virtualSessions VirtualStrategySession[]
 }
 
 model Profile {
@@ -125,6 +126,7 @@ model Instrument {
   CopyEvent     CopyEvent[]
 
   @@unique([symbol, exchange])
+  virtualSessions VirtualStrategySession[]
 }
 
 model MarketPrice {
@@ -163,6 +165,7 @@ model PaperTradingAccount {
   targetCopyTrades  CopyTrade[]
 
   @@unique([userId, accountName])
+  virtualSessions VirtualStrategySession[]
 }
 
 model PaperTradingLedger {
@@ -255,6 +258,7 @@ model Strategy {
   JournalEntry JournalEntry[]
 
   @@index([userId])
+  virtualSessions VirtualStrategySession[]
 }
 
 model BacktestRun {
@@ -659,4 +663,44 @@ model CopyTrade {
 
   @@unique([copyEventId, targetAccountId])
   @@index([followerUserId])
+}
+
+
+enum VirtualSessionStatus {
+  CREATED
+  RUNNING
+  PAUSED
+  STOPPED
+  ERROR
+}
+
+model VirtualStrategySession {
+  id                     String               @id @default(cuid())
+  userId                 String
+  strategyId             String
+  strategySnapshot       Json
+  instrumentId           String
+  timeframe              String
+  paperAccountId         String
+  status                 VirtualSessionStatus @default(CREATED)
+  startingCapital        Decimal              @db.Decimal(18, 8)
+  lastProcessedTimestamp DateTime?
+  lastProcessedPrice     Decimal?             @db.Decimal(18, 8)
+  historyBuffer          Json?                // Stores recent bars for indicators
+  startedAt              DateTime?
+  pausedAt               DateTime?
+  stoppedAt              DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy     Strategy            @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  instrument   Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  paperAccount PaperTradingAccount @relation(fields: [paperAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([strategyId])
+  @@index([instrumentId])
+  @@index([paperAccountId])
 }

@@ -19,7 +19,7 @@ import { TradingController } from './trading.controller';
     OrderStateService
   ],
   controllers: [TradingController],
-  exports: [PaperAccountService, PaperExecutionService]
+  exports: [PaperAccountService, PaperExecutionService, OrderStateService]
 })
 export class TradingModule implements OnModuleInit {
   constructor(

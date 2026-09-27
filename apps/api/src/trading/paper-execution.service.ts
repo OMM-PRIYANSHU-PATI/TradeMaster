@@ -135,7 +135,7 @@ export class PaperExecutionService {
     }
   }
 
-  private async executeOrderInternal(tx: Prisma.TransactionClient, order: any, executionPrice: Prisma.Decimal) {
+  public async executeOrderInternal(tx: Prisma.TransactionClient, order: any, executionPrice: Prisma.Decimal) {
     const quantity = new Prisma.Decimal(order.quantity);
     const grossValue = quantity.mul(executionPrice);
     const fee = this.feeService.calculateFee(order.side, quantity, executionPrice);

@@ -1,4 +1,5 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { VirtualStrategyModule } from './virtual-trading/virtual-trading.module';
 import { AppController } from './app.controller';
 import { AdminController } from './admin.controller';
 import { AppService } from './app.service';
@@ -18,7 +19,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import rateLimit from 'express-rate-limit';
 
 @Module({
-  imports: [EventEmitterModule.forRoot(), AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule, MarketModule, BrokerModule, CopyTradingModule],
+  imports: [VirtualStrategyModule, EventEmitterModule.forRoot(), AuthModule, ProfilesModule, TradingModule, BacktestModule, AnalyticsModule, JournalModule, TradersModule, AiModule, ChallengesModule, MarketModule, BrokerModule, CopyTradingModule],
   controllers: [AppController, AdminController],
   providers: [AppService],
 })

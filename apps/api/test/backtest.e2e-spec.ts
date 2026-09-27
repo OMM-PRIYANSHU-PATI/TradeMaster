@@ -635,18 +635,20 @@ import { prisma, Prisma } from 'database';
       });
       const stratId = res.body.id;
       
-      const p1 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+      const p1 = await request(app.getHttpServer()).post('/api/v1/backtests').set('Cookie', `sessionId=${userCookie}`).send({
         strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
       });
       const run1 = p1.body;
 
-      const p2 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+      const p2 = await request(app.getHttpServer()).post('/api/v1/backtests').set('Cookie', `sessionId=${userCookie}`).send({
         strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
       });
       const run2 = p2.body;
 
-      expect(run1.metrics).toEqual(run2.metrics);
-      expect(run1.trades.length).toEqual(run2.trades.length);
+      delete run1.metrics.id; delete run1.metrics.backtestRunId; delete run2.metrics.id; delete run2.metrics.backtestRunId; expect(run1.metrics).toEqual(run2.metrics);
+      const t1 = await request(app.getHttpServer()).get(`/api/v1/backtests/${run1.id}/trades`).set('Cookie', `sessionId=${userCookie}`);
+      const t2 = await request(app.getHttpServer()).get(`/api/v1/backtests/${run2.id}/trades`).set('Cookie', `sessionId=${userCookie}`);
+      expect(t1.body.length).toEqual(t2.body.length);
     });
 
     it('strategy snapshot isolates backtest from future strategy changes', async () => {
@@ -655,7 +657,7 @@ import { prisma, Prisma } from 'database';
       });
       const stratId = res.body.id;
       
-      const p1 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+      const p1 = await request(app.getHttpServer()).post('/api/v1/backtests').set('Cookie', `sessionId=${userCookie}`).send({
         strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
       });
       const run1 = p1.body;
@@ -664,8 +666,8 @@ import { prisma, Prisma } from 'database';
         configuration: { quantity: '10' }
       });
 
-      const getP = await request(app.getHttpServer()).get(`/api/v1/backtest/runs/${run1.id}`).set('Cookie', `sessionId=${userCookie}`);
-      expect(getP.body.strategy.configuration.quantity).toBe('5');
+      const getP = await request(app.getHttpServer()).get(`/api/v1/backtests/${run1.id}`).set('Cookie', `sessionId=${userCookie}`);
+      expect((getP.body.strategySnapshot as any).config.quantity).toBe('5');
     });
   });
 });
