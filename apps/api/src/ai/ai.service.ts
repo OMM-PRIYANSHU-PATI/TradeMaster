@@ -6,7 +6,8 @@ import { BacktestContextService } from './context/backtest-context.service';
 import { JournalContextService } from './context/journal-context.service';
 import { StrategyContextService } from './context/strategy-context.service';
 import { TradeReviewContextService } from './context/trade-review-context.service';
-import { SYSTEM_INSTRUCTIONS } from './prompts/prompts';
+import { SYSTEM_INSTRUCTIONS, STRATEGY_GENERATION_INSTRUCTIONS } from './prompts/prompts';
+import { aiStrategyResponseSchema, aiStrategyGenAiSchema, AiStrategyResponse } from './schemas/ai-strategy.schema';
 import { AiCoachDto } from './dto/ai.dto';
 import {
   aiInsightResponseSchema,
@@ -132,4 +133,19 @@ export class AiService {
       SYSTEM_INSTRUCTIONS,
     );
   }
+
+  async generateStrategy(userId: string, prompt: string) {
+    if (!prompt || !prompt.trim()) {
+      throw new BadRequestException('Strategy description cannot be empty');
+    }
+
+    return this.geminiService.generateStructuredContent(
+      prompt,
+      'Convert the following natural language strategy into the TradeMaster DSL.',
+      aiStrategyResponseSchema,
+      aiStrategyGenAiSchema,
+      STRATEGY_GENERATION_INSTRUCTIONS,
+    );
+  }
+
 }

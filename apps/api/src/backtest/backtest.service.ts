@@ -222,4 +222,37 @@ export class BacktestService {
   async validateStrategyConfiguration(configuration: { type: string; config: unknown }, type: string) {
     return this.strategyCompiler.compile(configuration, 'TEMP', '1D', type);
   }
+
+  async compareStrategies(userId: string, strategyIds: string[]) {
+    const strategies = await prisma.strategy.findMany({
+      where: {
+        id: { in: strategyIds },
+        userId
+      },
+      include: {
+        backtests: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            metrics: true
+          }
+        }
+      }
+    });
+
+    return strategies.map(strategy => {
+      const latestBacktest = strategy.backtests[0] || null;
+      return {
+        strategy: {
+          id: strategy.id,
+          name: strategy.name,
+          version: strategy.version,
+          assetClass: strategy.assetClass,
+          defaultTimeframe: strategy.defaultTimeframe
+        },
+        metrics: latestBacktest?.metrics || null
+      };
+    });
+  }
+
 }

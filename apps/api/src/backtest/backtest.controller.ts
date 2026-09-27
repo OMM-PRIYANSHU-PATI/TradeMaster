@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ValidationPipe, UsePipes, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ValidationPipe, UsePipes, HttpCode } from '@nestjs/common';
 import { BacktestService } from './backtest.service';
 import { StrategyCompiler } from './canonical/strategy.compiler';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -47,10 +47,14 @@ export class BacktestController {
 @Controller('api/v1/strategies')
 @UseGuards(AuthGuard)
 export class StrategyController {
-  constructor(
-    private readonly backtestService: BacktestService,
-    
-  ) {}
+  constructor(private readonly backtestService: BacktestService) {}
+
+  @Get('compare')
+  async compareStrategies(@CurrentUser() user: { id: string }, @Query('ids') ids: string) {
+    if (!ids) return [];
+    const strategyIds = ids.split(',');
+    return this.backtestService.compareStrategies(user.id, strategyIds);
+  }
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))

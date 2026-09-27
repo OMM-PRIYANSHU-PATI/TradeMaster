@@ -9,6 +9,13 @@ import { AiCoachDto } from './dto/ai.dto';
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
+  @Post('strategies/generate')
+  @HttpCode(HttpStatus.OK)
+  generateStrategy(@CurrentUser() user: { id: string }, @Body() dto: { prompt: string }) {
+    return this.aiService.generateStrategy(user.id, dto.prompt);
+  }
+
+
   @Post('coach')
   @HttpCode(HttpStatus.OK)
   coach(@CurrentUser() user: { id: string }, @Body() dto: AiCoachDto) {

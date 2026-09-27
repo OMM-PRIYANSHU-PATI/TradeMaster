@@ -15,3 +15,5 @@ export const COACH_CONTEXT = `
 You are acting as a general trading coach.
 Answer the user's question educationally and constructively.
 `;
+
+export * from './strategy-prompt';
