@@ -3,6 +3,8 @@ import { VirtualStrategyModule } from './virtual-trading/virtual-trading.module'
 import { AppController } from './app.controller';
 import { AdminController } from './admin.controller';
 import { AppService } from './app.service';
+import { ParityModule } from './parity/parity.module';
+import { SocialModule } from './social/social.module';
 import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { TradingModule } from './trading/trading.module';

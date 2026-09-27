@@ -7,9 +7,11 @@ import { PaperExecutionService } from './paper-execution.service';
 import { InstrumentsService } from './instruments.service';
 import { OrderStateService } from './order-state.service';
 import { TradingController } from './trading.controller';
+import { FinancialCostEngine } from './financial-cost.engine';
 
 @Module({
   providers: [
+    FinancialCostEngine,
     FeeService,
     PnlService,
     MarketDataService,
@@ -19,7 +21,8 @@ import { TradingController } from './trading.controller';
     OrderStateService
   ],
   controllers: [TradingController],
-  exports: [PaperAccountService, PaperExecutionService, OrderStateService]
+  exports: [
+    FinancialCostEngine,PaperAccountService, PaperExecutionService, OrderStateService]
 })
 export class TradingModule implements OnModuleInit {
   constructor(

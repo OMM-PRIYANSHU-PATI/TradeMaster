@@ -32,15 +32,16 @@ model User {
   Watchlist               Watchlist[]
   brokerConnections       BrokerConnection[]
 
-  following     Follow[]            @relation("UserFollowing")
-  followers     Follow[]            @relation("UserFollowers")
-  copyConfigs   CopyConfiguration[] @relation("UserCopyConfigs")
-  sourceConfigs CopyConfiguration[] @relation("SourceCopyConfigs")
-  copyEvents    CopyEvent[]         @relation("UserCopyEvents")
-  copyTrades    CopyTrade[]         @relation("FollowerCopyTrades")
-  virtualSessions VirtualStrategySession[]
+  following          Follow[]                 @relation("UserFollowing")
+  followers          Follow[]                 @relation("UserFollowers")
+  copyConfigs        CopyConfiguration[]      @relation("UserCopyConfigs")
+  sourceConfigs      CopyConfiguration[]      @relation("SourceCopyConfigs")
+  copyEvents         CopyEvent[]              @relation("UserCopyEvents")
+  copyTrades         CopyTrade[]              @relation("FollowerCopyTrades")
+  virtualSessions    VirtualStrategySession[]
   riskConfigurations RiskConfiguration[]
-    riskEvents RiskEvent[]
+  riskEvents         RiskEvent[]
+  socialPosts        SocialPost[]
 }
 
 model Profile {
@@ -119,17 +120,17 @@ model Instrument {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  prices        MarketPrice[]
-  orders        Order[]
-  positions     Position[]
-  backtests     BacktestRun[]
-  BacktestTrade BacktestTrade[]
-  WatchlistItem WatchlistItem[]
-  BrokerOrder   BrokerOrder[]
-  CopyEvent     CopyEvent[]
+  prices          MarketPrice[]
+  orders          Order[]
+  positions       Position[]
+  backtests       BacktestRun[]
+  BacktestTrade   BacktestTrade[]
+  WatchlistItem   WatchlistItem[]
+  BrokerOrder     BrokerOrder[]
+  CopyEvent       CopyEvent[]
+  virtualSessions VirtualStrategySession[]
 
   @@unique([symbol, exchange])
-  virtualSessions VirtualStrategySession[]
 }
 
 model MarketPrice {
@@ -158,8 +159,8 @@ model PaperTradingAccount {
   updatedAt      DateTime @updatedAt
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  costProfileId String?
-  costProfile   FinancialCostProfile? @relation(fields: [costProfileId], references: [id], onDelete: SetNull)
+  costProfileId        String?
+  costProfile          FinancialCostProfile? @relation(fields: [costProfileId], references: [id], onDelete: SetNull)
   ledger               PaperTradingLedger[]
   orders               Order[]
   positions            Position[]
@@ -168,9 +169,9 @@ model PaperTradingAccount {
 
   targetCopyConfigs CopyConfiguration[]
   targetCopyTrades  CopyTrade[]
+  virtualSessions   VirtualStrategySession[]
 
   @@unique([userId, accountName])
-  virtualSessions VirtualStrategySession[]
 }
 
 model PaperTradingLedger {
@@ -219,17 +220,17 @@ model Order {
 }
 
 model OrderFill {
-  id         String   @id @default(cuid())
-  orderId    String
-  quantity   Decimal  @db.Decimal(18, 8)
-  price      Decimal  @db.Decimal(18, 8)
-  fee        Decimal  @db.Decimal(18, 2)
-    brokerage  Decimal  @default(0) @db.Decimal(18, 2)
-    exchangeFees Decimal @default(0) @db.Decimal(18, 2)
-    taxes      Decimal  @default(0) @db.Decimal(18, 2)
-    slippage   Decimal  @default(0) @db.Decimal(18, 2)
-    otherCosts Decimal  @default(0) @db.Decimal(18, 2)
-  executedAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  orderId      String
+  quantity     Decimal  @db.Decimal(18, 8)
+  price        Decimal  @db.Decimal(18, 8)
+  fee          Decimal  @db.Decimal(18, 2)
+  brokerage    Decimal  @default(0) @db.Decimal(18, 2)
+  exchangeFees Decimal  @default(0) @db.Decimal(18, 2)
+  taxes        Decimal  @default(0) @db.Decimal(18, 2)
+  slippage     Decimal  @default(0) @db.Decimal(18, 2)
+  otherCosts   Decimal  @default(0) @db.Decimal(18, 2)
+  executedAt   DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -264,32 +265,34 @@ model Strategy {
   assetClass       String?  @db.VarChar(50)
   defaultTimeframe String?  @db.VarChar(50)
   tags             String[]
+  isPublic         Boolean  @default(false)
   version          Int      @default(1)
   parentId         String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent           Strategy?      @relation("StrategyVersions", fields: [parentId], references: [id], onDelete: SetNull)
-  versions         Strategy[]     @relation("StrategyVersions")
-  backtests        BacktestRun[]
-  JournalEntry     JournalEntry[]
-  virtualSessions  VirtualStrategySession[]
+  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent          Strategy?                @relation("StrategyVersions", fields: [parentId], references: [id], onDelete: SetNull)
+  versions        Strategy[]               @relation("StrategyVersions")
+  backtests       BacktestRun[]
+  JournalEntry    JournalEntry[]
+  virtualSessions VirtualStrategySession[]
+  socialPosts     SocialPost[]
 
   @@index([userId])
 }
 
 model BacktestRun {
-  id             String    @id @default(cuid())
-  userId         String
-  strategyId     String
-  instrumentId   String
-  timeframe      String
-  startDate      DateTime
-  endDate        DateTime
-  initialCapital Decimal   @db.Decimal(18, 8)
-  commissionRate Decimal   @db.Decimal(10, 4)
-  status         String // PENDING, RUNNING, COMPLETED, FAILED
+  id               String    @id @default(cuid())
+  userId           String
+  strategyId       String
+  instrumentId     String
+  timeframe        String
+  startDate        DateTime
+  endDate          DateTime
+  initialCapital   Decimal   @db.Decimal(18, 8)
+  commissionRate   Decimal   @db.Decimal(10, 4)
+  status           String // PENDING, RUNNING, COMPLETED, FAILED
   errorMessage     String?
   strategySnapshot Json?
   createdAt        DateTime  @default(now())
@@ -299,11 +302,12 @@ model BacktestRun {
   strategy   Strategy   @relation(fields: [strategyId], references: [id], onDelete: Cascade)
   instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
-  costProfileId String?
-  costProfile   FinancialCostProfile? @relation(fields: [costProfileId], references: [id], onDelete: SetNull)
+  costProfileId         String?
+  costProfile           FinancialCostProfile? @relation(fields: [costProfileId], references: [id], onDelete: SetNull)
   trades                BacktestTrade[]
   equityCurve           BacktestEquityPoint[]
   metrics               BacktestMetric?
+  socialPosts           SocialPost[]
   PaperTradingAccount   PaperTradingAccount?  @relation(fields: [paperTradingAccountId], references: [id])
   paperTradingAccountId String?
 
@@ -324,12 +328,12 @@ model BacktestTrade {
   exitFee       Decimal  @db.Decimal(18, 8)
   grossPnl      Decimal  @db.Decimal(18, 8)
   fees          Decimal  @db.Decimal(18, 8)
-    brokerage     Decimal  @default(0) @db.Decimal(18, 8)
-    exchangeFees  Decimal  @default(0) @db.Decimal(18, 8)
-    taxes         Decimal  @default(0) @db.Decimal(18, 8)
-    slippage      Decimal  @default(0) @db.Decimal(18, 8)
-    otherCosts    Decimal  @default(0) @db.Decimal(18, 8)
-    totalCosts    Decimal  @default(0) @db.Decimal(18, 8)
+  brokerage     Decimal  @default(0) @db.Decimal(18, 8)
+  exchangeFees  Decimal  @default(0) @db.Decimal(18, 8)
+  taxes         Decimal  @default(0) @db.Decimal(18, 8)
+  slippage      Decimal  @default(0) @db.Decimal(18, 8)
+  otherCosts    Decimal  @default(0) @db.Decimal(18, 8)
+  totalCosts    Decimal  @default(0) @db.Decimal(18, 8)
   netPnl        Decimal  @db.Decimal(18, 8)
   openedAt      DateTime
   closedAt      DateTime
@@ -693,7 +697,6 @@ model CopyTrade {
   @@index([followerUserId])
 }
 
-
 enum VirtualSessionStatus {
   CREATED
   RUNNING
@@ -714,18 +717,19 @@ model VirtualStrategySession {
   startingCapital        Decimal              @db.Decimal(18, 8)
   lastProcessedTimestamp DateTime?
   lastProcessedPrice     Decimal?             @db.Decimal(18, 8)
-  historyBuffer          Json?                // Stores recent bars for indicators
+  historyBuffer          Json? // Stores recent bars for indicators
   startedAt              DateTime?
   pausedAt               DateTime?
   stoppedAt              DateTime?
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
 
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  strategy     Strategy            @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  instrument   Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
-  paperAccount PaperTradingAccount @relation(fields: [paperAccountId], references: [id], onDelete: Cascade)
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy          Strategy            @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  instrument        Instrument          @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  paperAccount      PaperTradingAccount @relation(fields: [paperAccountId], references: [id], onDelete: Cascade)
   riskConfiguration RiskConfiguration?
+  SocialPost        SocialPost[]
 
   @@index([userId])
   @@index([status])
@@ -735,20 +739,20 @@ model VirtualStrategySession {
 }
 
 model RiskConfiguration {
-  id               String   @id @default(cuid())
-  userId           String
-  sessionId        String?  @unique
-  maxPositionSize  Decimal? @db.Decimal(18, 8)
-  stopLossPct      Decimal? @db.Decimal(10, 4)
-  takeProfitPct    Decimal? @db.Decimal(10, 4)
-  trailingStopPct  Decimal? @db.Decimal(10, 4)
-  maxDailyLossPct  Decimal? @db.Decimal(10, 4)
-  maxDrawdownPct   Decimal? @db.Decimal(10, 4)
-  maxExposure      Decimal? @db.Decimal(18, 8)
+  id                     String   @id @default(cuid())
+  userId                 String
+  sessionId              String?  @unique
+  maxPositionSize        Decimal? @db.Decimal(18, 8)
+  stopLossPct            Decimal? @db.Decimal(10, 4)
+  takeProfitPct          Decimal? @db.Decimal(10, 4)
+  trailingStopPct        Decimal? @db.Decimal(10, 4)
+  maxDailyLossPct        Decimal? @db.Decimal(10, 4)
+  maxDrawdownPct         Decimal? @db.Decimal(10, 4)
+  maxExposure            Decimal? @db.Decimal(18, 8)
   maxConcurrentPositions Int?
-  emergencyStop    Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  emergencyStop          Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   user    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   session VirtualStrategySession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -757,18 +761,18 @@ model RiskConfiguration {
 }
 
 model RiskEvent {
-  id             String   @id @default(cuid())
-  userId         String
-  sessionId      String?
-  instrumentId   String?
-  eventType      String
-  decision       String
-  requestedQty   Decimal? @db.Decimal(18, 8)
-  approvedQty    Decimal? @db.Decimal(18, 8)
-  reason         String?
-  createdAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  sessionId    String?
+  instrumentId String?
+  eventType    String
+  decision     String
+  requestedQty Decimal? @db.Decimal(18, 8)
+  approvedQty  Decimal? @db.Decimal(18, 8)
+  reason       String?
+  createdAt    DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum CostModelType {
@@ -779,31 +783,50 @@ enum CostModelType {
 }
 
 model FinancialCostProfile {
-  id               String   @id @default(cuid())
-  name             String
-  description      String?
-  
-  brokerageModel   CostModelType
-  brokerageValue   Decimal  @db.Decimal(10, 4)
-  
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  brokerageModel CostModelType
+  brokerageValue Decimal       @db.Decimal(10, 4)
+
   exchangeFeeModel CostModelType
-  exchangeFeeValue Decimal  @db.Decimal(10, 4)
-  
-  taxModel         CostModelType
-  taxValue         Decimal  @db.Decimal(10, 4)
-  
-  slippageModel    CostModelType
-  slippageValue    Decimal  @db.Decimal(10, 4)
-  
-  effectiveFrom    DateTime @default(now())
-  active           Boolean  @default(true)
-  
+  exchangeFeeValue Decimal       @db.Decimal(10, 4)
+
+  taxModel CostModelType
+  taxValue Decimal       @db.Decimal(10, 4)
+
+  slippageModel CostModelType
+  slippageValue Decimal       @db.Decimal(10, 4)
+
+  effectiveFrom DateTime @default(now())
+  active        Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  backtestRuns  BacktestRun[]
+  paperAccounts PaperTradingAccount[]
+}
+
+model SocialPost {
+  id               String   @id @default(cuid())
+  userId           String
+  content          String?
+  type             String // TEXT, STRATEGY, BACKTEST, VIRTUAL
+  strategyId       String?
+  backtestId       String?
+  virtualSessionId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  
-  userId           String?
-  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  backtestRuns      BacktestRun[]
-  paperAccounts     PaperTradingAccount[]
+
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy       Strategy?               @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  backtest       BacktestRun?            @relation(fields: [backtestId], references: [id], onDelete: SetNull)
+  virtualSession VirtualStrategySession? @relation(fields: [virtualSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
