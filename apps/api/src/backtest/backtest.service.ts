@@ -1,12 +1,24 @@
-﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { prisma, Prisma } from 'database';
-import { BacktestEngine } from './backtest.engine';
+import { HistoricalDataProvider } from './historical-data.provider';
+import { StrategyCompiler } from './canonical/strategy.compiler';
+import { BacktestAdapter } from './canonical/backtest.adapter';
+import { StrategyExecutionEngine } from './canonical/strategy-execution.engine';
+import { IndicatorEngine } from './indicators/indicator.engine';
 
 @Injectable()
 export class BacktestService {
-  constructor(private readonly engine: BacktestEngine) {}
+  constructor(
+    private readonly dataProvider: HistoricalDataProvider,
+    private readonly strategyCompiler: StrategyCompiler,
+    private readonly backtestAdapter: BacktestAdapter,
+    private readonly strategyExecutionEngine: StrategyExecutionEngine,
+  ) {}
 
   async createStrategy(userId: string, data: { name: string; description?: string; type: string; configuration: unknown }) {
+    // Validate strategy configuration at creation time
+    this.strategyCompiler.compile({ type: data.type, config: data.configuration }, 'TEMP', '1D', data.type);
+    
     return prisma.strategy.create({
       data: {
         userId,
@@ -39,6 +51,14 @@ export class BacktestService {
     const initialCapital = new Prisma.Decimal(data.initialCapital);
     const commissionRate = new Prisma.Decimal('0.001'); // Fixed fee policy
 
+    // Compile the strategy to get the canonical representation
+    const compiledStrategy = this.strategyCompiler.compile(
+      { type: strategy.type, config: strategy.configuration },
+      instrument.symbol,
+      '1D',
+      strategy.type
+    );
+
     const run = await prisma.backtestRun.create({
       data: {
         userId,
@@ -49,20 +69,22 @@ export class BacktestService {
         endDate: new Date(data.endDate),
         initialCapital,
         commissionRate,
-        status: 'RUNNING'
+        status: 'RUNNING',
+        strategySnapshot: compiledStrategy.rawConfiguration as Prisma.InputJsonValue,
       }
     });
 
     try {
-      const result = await this.engine.runBacktest(
-        instrument.id,
-        run.startDate,
-        run.endDate,
+      const bars = await this.dataProvider.getBars(instrument.id, run.startDate, run.endDate);
+      
+      const result = await this.backtestAdapter.execute(compiledStrategy, bars, {
+        instrumentId: instrument.id,
         initialCapital,
         commissionRate,
-        { type: strategy.type, config: strategy.configuration }
-      );
-      
+        startDate: run.startDate,
+        endDate: run.endDate,
+      });
+
       // Save results
       await prisma.$transaction(async (tx) => {
         for (const t of result.trades) {
@@ -85,7 +107,6 @@ export class BacktestService {
           });
         }
         
-        // chunk equity curve saves if large, but we only have 100 for Phase 3 tests
         for (const eq of result.equityCurve) {
           await tx.backtestEquityPoint.create({
             data: {
@@ -164,5 +185,9 @@ export class BacktestService {
   async getBacktestEquity(userId: string, id: string) {
     await this.getBacktest(userId, id);
     return prisma.backtestEquityPoint.findMany({ where: { backtestRunId: id }, orderBy: { timestamp: 'asc' } });
+  }
+
+  async validateStrategyConfiguration(configuration: { type: string; config: unknown }, type: string) {
+    return this.strategyCompiler.compile(configuration, 'TEMP', '1D', type);
   }
 }

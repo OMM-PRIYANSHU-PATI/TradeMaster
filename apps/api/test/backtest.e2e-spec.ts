@@ -263,6 +263,7 @@ import { prisma, Prisma } from 'database';
       const res = await request(app.getHttpServer()).post('/api/v1/strategies').set('Cookie', `sessionId=${userCookie}`).send({
         name: 'Strat A', type: 'BUY_AND_HOLD', configuration: { quantity: '1' }
       });
+      if(res.status !== 201) console.log(res.body);
       expect(res.status).toBe(201);
       stratA = res.body.id;
       strategyId = stratA;
@@ -272,6 +273,7 @@ import { prisma, Prisma } from 'database';
       const res = await request(app.getHttpServer()).post('/api/v1/backtests').set('Cookie', `sessionId=${userCookie}`).send({
         strategyId: stratA, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
       });
+      if(res.status !== 201) console.log(res.body);
       expect(res.status).toBe(201);
       runA = res.body.id;
     });
@@ -516,6 +518,7 @@ import { prisma, Prisma } from 'database';
       const res = await request(app.getHttpServer()).post('/api/v1/backtests').set('Cookie', `sessionId=${userCookie}`).send({
         strategyId, instrumentId: aaplId, startDate: '2020-01-01', endDate: '2020-04-10', initialCapital: '100000'
       });
+      if(res.status !== 201) console.log(res.body);
       run1 = res.body;
       expect(run1.status).toBe('COMPLETED');
     });
@@ -622,6 +625,47 @@ import { prisma, Prisma } from 'database';
         configuration: { quantity: '10', hackerField: true }
       });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Phase 16 - Deterministic Replay & Strategy Snapshot', () => {
+    it('runs identical strategy twice and yields identical results', async () => {
+      let res = await request(app.getHttpServer()).post('/api/v1/strategies').set('Cookie', `sessionId=${userCookie}`).send({
+        name: 'DetStrat', type: 'BUY_AND_HOLD', configuration: { quantity: '5' }
+      });
+      const stratId = res.body.id;
+      
+      const p1 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+        strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
+      });
+      const run1 = p1.body;
+
+      const p2 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+        strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
+      });
+      const run2 = p2.body;
+
+      expect(run1.metrics).toEqual(run2.metrics);
+      expect(run1.trades.length).toEqual(run2.trades.length);
+    });
+
+    it('strategy snapshot isolates backtest from future strategy changes', async () => {
+      let res = await request(app.getHttpServer()).post('/api/v1/strategies').set('Cookie', `sessionId=${userCookie}`).send({
+        name: 'SnapStrat', type: 'BUY_AND_HOLD', configuration: { quantity: '5' }
+      });
+      const stratId = res.body.id;
+      
+      const p1 = await request(app.getHttpServer()).post('/api/v1/backtest/run').set('Cookie', `sessionId=${userCookie}`).send({
+        strategyId: stratId, instrumentId: aaplId, startDate: '2023-01-01', endDate: '2023-01-02', initialCapital: '1000'
+      });
+      const run1 = p1.body;
+
+      await request(app.getHttpServer()).patch(`/api/v1/strategies/${stratId}`).set('Cookie', `sessionId=${userCookie}`).send({
+        configuration: { quantity: '10' }
+      });
+
+      const getP = await request(app.getHttpServer()).get(`/api/v1/backtest/runs/${run1.id}`).set('Cookie', `sessionId=${userCookie}`);
+      expect(getP.body.strategy.configuration.quantity).toBe('5');
     });
   });
 });

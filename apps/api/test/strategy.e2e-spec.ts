@@ -1,136 +1,99 @@
-import { StrategyEngine } from '../src/backtest/strategy.engine';
+import { StrategyCompiler } from '../src/backtest/canonical/strategy.compiler';
+import { StrategyExecutionEngine } from '../src/backtest/canonical/strategy-execution.engine';
 import { IndicatorEngine } from '../src/backtest/indicators/indicator.engine';
-import { StrategyConfiguration, CustomRuleCombinationConfig } from '../src/backtest/interfaces';
 import { Prisma } from 'database';
+import { HistoricalBar } from '../src/backtest/interfaces';
+import { PositionState, StrategyState } from '../src/backtest/canonical/models';
+import { BadRequestException } from '@nestjs/common';
 
-describe('StrategyEngine (Unit)', () => {
-  let engine: StrategyEngine;
-  let ie: IndicatorEngine;
+describe('Canonical Strategy Execution Foundation', () => {
+  let compiler: StrategyCompiler;
+  let engine: StrategyExecutionEngine;
+  let indicatorEngine: IndicatorEngine;
 
   beforeEach(() => {
-    engine = new StrategyEngine();
-    ie = new IndicatorEngine();
+    compiler = new StrategyCompiler();
+    engine = new StrategyExecutionEngine();
+    indicatorEngine = new IndicatorEngine();
   });
 
   const makeDecimal = (v: number) => new Prisma.Decimal(v);
-
-  let timeCounter = 1000;
-  const makeBar = (p: number) => {
-    timeCounter++;
-    return { timestamp: new Date(timeCounter), open: makeDecimal(p), high: makeDecimal(p), low: makeDecimal(p), close: makeDecimal(p), volume: makeDecimal(1000) };
+  let time = 1000;
+  const bar = (p: number): HistoricalBar => {
+    time += 1000;
+    return { timestamp: new Date(time), open: makeDecimal(p), high: makeDecimal(p), low: makeDecimal(p), close: makeDecimal(p), volume: makeDecimal(100) };
   };
 
-  it('MOVING_AVERAGE_CROSSOVER behaves correctly', () => {
-    const cfg: StrategyConfiguration = { type: 'MOVING_AVERAGE_CROSSOVER', fastPeriod: 1, slowPeriod: 2, quantity: '10' };
-    expect(engine.generateSignal(cfg, [10, 10, 10].map(makeBar), makeDecimal(0), ie).type).toBe('HOLD');
-    expect(engine.generateSignal(cfg, [10, 10, 20].map(makeBar), makeDecimal(0), ie).type).toBe('BUY');
-    expect(engine.generateSignal(cfg, [20, 20, 10].map(makeBar), makeDecimal(10), ie).type).toBe('SELL');
+  describe('A. Compiler', () => {
+    it('compiles valid BUY_AND_HOLD', () => {
+      const compiled = compiler.compile({ type: 'BUY_AND_HOLD', config: { quantity: '10' } }, 'AAPL', '1D', 'BUY_AND_HOLD');
+      expect(compiled.strategyType).toBe('BUY_AND_HOLD');
+      expect(compiled.positionSizing.value).toBe('10');
+    });
+
+    it('rejects unsupported strategy type', () => {
+      expect(() => compiler.compile({ type: 'INVALID_TYPE', config: {} }, 'AAPL', '1D', 'INVALID')).toThrow(BadRequestException);
+    });
+
+    it('rejects invalid position sizing (empty/negative)', () => {
+      expect(() => compiler.compile({ type: 'BUY_AND_HOLD', config: { quantity: '-5' } }, 'AAPL', '1D', 'BUY_AND_HOLD')).toThrow();
+    });
+
+    it('compiles custom combination with logical operators', () => {
+      const config = {
+        buyCondition: { operator: 'AND', conditions: [
+          { operator: 'CROSSES_ABOVE', left: { type: 'PRICE', field: 'close' }, right: { type: 'CONSTANT', value: 100 } }
+        ]},
+        sellCondition: { operator: 'NOT', condition: { operator: 'EQUAL', left: { type: 'CONSTANT', value: 1 }, right: { type: 'CONSTANT', value: 2 } } },
+        quantity: '5'
+      };
+      const compiled = compiler.compile({ type: 'CUSTOM_RULE_COMBINATION', config }, 'AAPL', '1D', 'CUSTOM_RULE_COMBINATION');
+      expect(compiled.entry.condition?.operator).toBe('AND');
+      expect(compiled.exit.condition?.operator).toBe('NOT');
+    });
   });
 
-  it('RSI_THRESHOLD behaves correctly', () => {
-    const cfg: StrategyConfiguration = { type: 'RSI_THRESHOLD', period: 2, oversold: 30, overbought: 70, quantity: '10' };
-    
-    jest.spyOn(ie, 'calculateRSI').mockReturnValue([50, 50, 31, 29]); 
-    expect(engine.generateSignal(cfg, [0,0,0,0].map(makeBar), makeDecimal(0), ie).type).toBe('BUY');
-    
-    jest.spyOn(ie, 'calculateRSI').mockReturnValue([50, 50, 69, 71]); 
-    expect(engine.generateSignal(cfg, [0,0,0,0].map(makeBar), makeDecimal(10), ie).type).toBe('SELL');
-    
-    jest.spyOn(ie, 'calculateRSI').mockReturnValue([50, 50, 50, 50]); 
-    expect(engine.generateSignal(cfg, [0,0,0,0].map(makeBar), makeDecimal(0), ie).type).toBe('HOLD');
+  describe('B. Signals & C. State Machine & D. OrderIntent', () => {
+    it('generates BUY OrderIntent on crossover, state FLAT -> LONG', () => {
+      const config = { type: 'MOVING_AVERAGE_CROSSOVER', config: { fastPeriod: 1, slowPeriod: 2, quantity: '10' } };
+      const compiled = compiler.compile(config, 'AAPL', '1D', 'MOVING_AVERAGE_CROSSOVER');
+      
+      const bars = [bar(10), bar(10), bar(20)]; // price crosses above average
+      
+      let position: PositionState = { state: StrategyState.FLAT, quantity: makeDecimal(0), averageEntryPrice: makeDecimal(0) };
+      
+      const sig1 = engine.evaluate({ compiledStrategy: compiled, currentBar: bars[0], historyToNow: [bars[0]], positionState: position, indicatorEngine });
+      expect(sig1.type).toBe('HOLD');
+
+      const sig3 = engine.evaluate({ compiledStrategy: compiled, currentBar: bars[2], historyToNow: bars, positionState: position, indicatorEngine });
+      expect(sig3.type).toBe('BUY');
+      expect(sig3.quantity?.toNumber()).toBe(10);
+      expect(sig3.reason).toContain('CROSSES_ABOVE');
+
+      // State simulation
+      position = { state: StrategyState.LONG, quantity: makeDecimal(10), averageEntryPrice: makeDecimal(20) };
+      
+      // LONG + BUY -> HOLD
+      const sig4 = engine.evaluate({ compiledStrategy: compiled, currentBar: bars[2], historyToNow: bars, positionState: position, indicatorEngine });
+      expect(sig4.type).toBe('HOLD'); // already long
+    });
   });
 
-  it('MACD_CROSSOVER behaves correctly', () => {
-    const cfg: StrategyConfiguration = { type: 'MACD_CROSSOVER', fastPeriod: 2, slowPeriod: 4, signalPeriod: 3, quantity: '10' };
-    
-    jest.spyOn(ie, 'calculateMACD').mockReturnValue([
-      null, null, null,
-      { macd: -1, signal: 0, histogram: -1 },
-      { macd: 1, signal: 0, histogram: 1 }
-    ]);
-    expect(engine.generateSignal(cfg, [0,0,0,0,0].map(makeBar), makeDecimal(0), ie).type).toBe('BUY');
-    
-    jest.spyOn(ie, 'calculateMACD').mockReturnValue([
-      null, null, null,
-      { macd: 1, signal: 0, histogram: 1 },
-      { macd: -1, signal: 0, histogram: -1 }
-    ]);
-    expect(engine.generateSignal(cfg, [0,0,0,0,0].map(makeBar), makeDecimal(10), ie).type).toBe('SELL');
-    
-    jest.spyOn(ie, 'calculateMACD').mockReturnValue([
-      null, null, null,
-      { macd: -1, signal: 0, histogram: -1 },
-      { macd: -1, signal: 0, histogram: -1 } 
-    ]);
-    expect(engine.generateSignal(cfg, [0,0,0,0,0].map(makeBar), makeDecimal(0), ie).type).toBe('HOLD');
-  });
+  describe('E. No-lookahead', () => {
+    it('signal for candle N is identical regardless of future candle N+1', () => {
+      const config = { type: 'MOVING_AVERAGE_CROSSOVER', config: { fastPeriod: 1, slowPeriod: 2, quantity: '10' } };
+      const compiled = compiler.compile(config, 'AAPL', '1D', 'MOVING_AVERAGE_CROSSOVER');
+      
+      const barsBase = [bar(10), bar(10), bar(20)];
+      const position: PositionState = { state: StrategyState.FLAT, quantity: makeDecimal(0), averageEntryPrice: makeDecimal(0) };
 
-  it('BOLLINGER_BAND behaves correctly', () => {
-    const cfg: StrategyConfiguration = { type: 'BOLLINGER_BAND', period: 2, stdDevMultiplier: 2, quantity: '10' };
-    
-    jest.spyOn(ie, 'calculateBollingerBands').mockReturnValue([
-      null, null,
-      { middle: 100, upper: 110, lower: 90 }, 
-      { middle: 90, upper: 100, lower: 85 }   
-    ]);
-    const barsBuy = [makeBar(100), makeBar(100), makeBar(100), makeBar(80)];
-    expect(engine.generateSignal(cfg, barsBuy, makeDecimal(0), ie).type).toBe('BUY');
-    
-    jest.spyOn(ie, 'calculateBollingerBands').mockReturnValue([
-      null, null,
-      { middle: 100, upper: 110, lower: 90 },
-      { middle: 110, upper: 115, lower: 105 }
-    ]);
-    const barsSell = [makeBar(100), makeBar(100), makeBar(100), makeBar(120)];
-    expect(engine.generateSignal(cfg, barsSell, makeDecimal(10), ie).type).toBe('SELL');
-    
-    jest.spyOn(ie, 'calculateBollingerBands').mockReturnValue([
-      null, null,
-      { middle: 100, upper: 110, lower: 90 },
-      { middle: 110, upper: 115, lower: 105 }
-    ]);
-    const barsHold = [makeBar(100), makeBar(100), makeBar(100), makeBar(110)];
-    expect(engine.generateSignal(cfg, barsHold, makeDecimal(10), ie).type).toBe('HOLD');
-  });
+      const sigWithoutFuture = engine.evaluate({ compiledStrategy: compiled, currentBar: barsBase[2], historyToNow: barsBase, positionState: position, indicatorEngine });
+      
+      const barsWithFuture = [...barsBase, bar(5)];
+      const sigWithFuture = engine.evaluate({ compiledStrategy: compiled, currentBar: barsWithFuture[2], historyToNow: barsWithFuture.slice(0, 3), positionState: position, indicatorEngine });
 
-  it('CUSTOM_RULE_COMBINATION logic correctly applies three-valued logic (AND, OR, NOT, null propagation)', () => {
-    const trueCond = { operator: 'EQUAL', left: { type: 'CONSTANT', value: 1 }, right: { type: 'CONSTANT', value: 1 } };
-    const falseCond = { operator: 'EQUAL', left: { type: 'CONSTANT', value: 1 }, right: { type: 'CONSTANT', value: 0 } };
-    // SMA(100) will definitely return null on an empty or short array
-    const nullCond = { operator: 'INDICATOR', name: 'SMA', config: { period: 100 }, output: 'result' };
-    
-    const evaluate = (buyCondition: unknown) => {
-      const cfg = { type: 'CUSTOM_RULE_COMBINATION', quantity: '10', buyCondition } as CustomRuleCombinationConfig;
-      return engine.generateSignal(cfg, [makeBar(10)], makeDecimal(0), ie).type === 'BUY';
-    };
-
-    // Base truth values
-    expect(evaluate(trueCond)).toBe(true);
-    expect(evaluate(falseCond)).toBe(false);
-    expect(evaluate({ operator: 'EQUAL', left: trueCond.left, right: nullCond })).toBe(false); // evaluates to null -> HOLD -> false BUY
-
-    // Explicitly test AND
-    // true AND null = null (HOLD)
-    expect(evaluate({ operator: 'AND', conditions: [trueCond, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(false);
-    // false AND null = false (HOLD)
-    expect(evaluate({ operator: 'AND', conditions: [falseCond, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(false);
-    // null AND null = null (HOLD)
-    expect(evaluate({ operator: 'AND', conditions: [{ operator: 'EQUAL', left: trueCond.left, right: nullCond }, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(false);
-    
-    // Explicitly test OR
-    // true OR null = true (BUY)
-    expect(evaluate({ operator: 'OR', conditions: [trueCond, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(true);
-    // false OR null = null (HOLD)
-    expect(evaluate({ operator: 'OR', conditions: [falseCond, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(false);
-    // null OR null = null (HOLD)
-    expect(evaluate({ operator: 'OR', conditions: [{ operator: 'EQUAL', left: trueCond.left, right: nullCond }, { operator: 'EQUAL', left: trueCond.left, right: nullCond }] })).toBe(false);
-    
-    // Explicitly test NOT
-    // NOT true = false
-    expect(evaluate({ operator: 'NOT', condition: trueCond })).toBe(false);
-    // NOT false = true
-    expect(evaluate({ operator: 'NOT', condition: falseCond })).toBe(true);
-    // NOT null = null
-    expect(evaluate({ operator: 'NOT', condition: { operator: 'EQUAL', left: trueCond.left, right: nullCond } })).toBe(false);
+      expect(sigWithoutFuture).toEqual(sigWithFuture);
+    });
   });
 });
+

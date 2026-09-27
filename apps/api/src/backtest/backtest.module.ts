@@ -1,24 +1,28 @@
 import { Module } from '@nestjs/common';
 import { BacktestController, StrategyController } from './backtest.controller';
 import { BacktestService } from './backtest.service';
-import { BacktestEngine } from './backtest.engine';
-import { StrategyEngine } from './strategy.engine';
 import { HistoricalDataProvider } from './historical-data.provider';
+import { IndicatorEngine } from './indicators/indicator.engine';
 import { PnlService } from '../trading/pnl.service';
 import { FeeService } from '../trading/fee.service';
-// import { AuthModule } from '../auth/auth.module';
+import { StrategyCompiler } from './canonical/strategy.compiler';
+import { StrategyExecutionEngine } from './canonical/strategy-execution.engine';
+import { BacktestAdapter } from './canonical/backtest.adapter';
+import { PaperExecutionAdapter } from './canonical/paper-execution.adapter';
 
 @Module({
-  imports: [],
   controllers: [BacktestController, StrategyController],
   providers: [
     BacktestService,
-    BacktestEngine,
-    StrategyEngine,
-    HistoricalDataProvider,
+            HistoricalDataProvider,
+    IndicatorEngine,
     PnlService,
-    FeeService
+    FeeService,
+    StrategyCompiler,
+    StrategyExecutionEngine,
+    BacktestAdapter,
+    PaperExecutionAdapter,
   ],
-  exports: [BacktestService],
+  exports: [BacktestService, StrategyCompiler, StrategyExecutionEngine, PaperExecutionAdapter],
 })
 export class BacktestModule {}

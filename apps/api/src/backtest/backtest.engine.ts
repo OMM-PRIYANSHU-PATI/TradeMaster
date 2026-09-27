@@ -5,12 +5,12 @@ import { HistoricalDataProvider } from './historical-data.provider';
 import { StrategyEngine } from './strategy.engine';
 import { PnlService } from '../trading/pnl.service';
 import { FeeService } from '../trading/fee.service';
-import { TradeRecord } from './interfaces';
+import { TradeRecord, HistoricalBar } from './interfaces';
 
 @Injectable()
 export class BacktestEngine {
   constructor(
-    private readonly dataProvider: HistoricalDataProvider,
+    public readonly dataProvider: HistoricalDataProvider,
     private readonly strategyEngine: StrategyEngine,
     private readonly pnlService: PnlService,
     private readonly feeService: FeeService
@@ -23,7 +23,7 @@ export class BacktestEngine {
     initialCapital: Prisma.Decimal,
     commissionRate: Prisma.Decimal,
     strategyConfig: unknown,
-    customProviderBars?: import("./interfaces").HistoricalBar[] // Optional injection for no-lookahead unit tests
+    customProviderBars?: HistoricalBar[]
   ) {
     const validConfig = this.strategyEngine.parseStrategyConfiguration(strategyConfig);
 
@@ -90,10 +90,6 @@ export class BacktestEngine {
             const grossValue = qty.mul(execPrice);
             const exitFee = grossValue.mul(commissionRate);
             
-            // ACCOUNTING CONVENTION: Proportional Entry-Fee Allocation
-            // We track a single accumulated entry fee pool. On partial (or full) exits,
-            // the entry fee is allocated proportionally against the existing position size
-            // before the sell. This safely supports multi-entry averaging.
             const allocatedEntryFee = accumulatedEntryFees.mul(qty).div(positionQuantity);
             accumulatedEntryFees = accumulatedEntryFees.sub(allocatedEntryFee);
             
@@ -123,7 +119,7 @@ export class BacktestEngine {
             if (positionQuantity.isZero()) {
               averageEntryPrice = new Prisma.Decimal(0);
               positionOpenedAt = null;
-              accumulatedEntryFees = new Prisma.Decimal(0); // Safely reset floating point dust
+              accumulatedEntryFees = new Prisma.Decimal(0);
             }
           }
         }
@@ -161,7 +157,6 @@ export class BacktestEngine {
       
       cash = cash.add(grossValue).sub(exitFee);
       
-      // Since we are closing 100%, all accumulated entry fees are allocated
       const totalFees = accumulatedEntryFees.add(exitFee);
       const netPnl = realizedPnl.sub(totalFees);
       
@@ -183,7 +178,6 @@ export class BacktestEngine {
       positionQuantity = new Prisma.Decimal(0);
       averageEntryPrice = new Prisma.Decimal(0);
       
-      // Update final equity point explicitly
       const finalEquity = cash;
       equityCurve[equityCurve.length - 1].cash = cash;
       equityCurve[equityCurve.length - 1].positionValue = new Prisma.Decimal(0);
@@ -205,8 +199,6 @@ export class BacktestEngine {
     
     const maxDrawdownPercent = maxEquity.isZero() ? new Prisma.Decimal(0) : maxDrawdown.div(maxEquity).mul(100);
     
-    // SEMANTICS: averageWin = gross profit / winning trades (always positive)
-    // SEMANTICS: averageLoss = gross loss / losing trades (always negative due to grossLoss being negative)
     let grossProfit = new Prisma.Decimal(0);
     let grossLoss = new Prisma.Decimal(0);
     let winCount = 0;
@@ -215,11 +207,9 @@ export class BacktestEngine {
     for (const t of trades) {
       totalFees = totalFees.add(t.fees);
       
-      // Gross Profit/Loss defined by grossPnl semantics
       if (t.grossPnl.gt(0)) grossProfit = grossProfit.add(t.grossPnl);
       else grossLoss = grossLoss.add(t.grossPnl);
       
-      // Win/Loss counting defined by netPnl semantics
       if (t.netPnl.gt(0)) {
         winCount++;
       }

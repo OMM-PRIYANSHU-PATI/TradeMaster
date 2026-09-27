@@ -1,16 +1,16 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ValidationPipe, UsePipes, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ValidationPipe, UsePipes, HttpCode } from '@nestjs/common';
 import { BacktestService } from './backtest.service';
-import { StrategyEngine } from './strategy.engine';
+import { StrategyCompiler } from './canonical/strategy.compiler';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateStrategyDto, UpdateStrategyDto, RunBacktestDto } from './dto/backtest.dto';
 import { prisma, Prisma } from 'database';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 
 @Controller('api/v1/backtests')
 @UseGuards(AuthGuard)
 export class BacktestController {
-  constructor(private readonly backtestService: BacktestService, private readonly strategyEngine: StrategyEngine) {}
+  constructor(private readonly backtestService: BacktestService) {}
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))
@@ -49,14 +49,14 @@ export class BacktestController {
 export class StrategyController {
   constructor(
     private readonly backtestService: BacktestService,
-    private readonly strategyEngine: StrategyEngine
+    
   ) {}
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))
-  createStrategy(@CurrentUser() user: { id: string }, @Body() data: CreateStrategyDto) {
-    this.strategyEngine.parseStrategyConfiguration({ type: data.type, config: data.configuration });
-    this.strategyEngine.parseStrategyConfiguration({ type: data.type, config: data.configuration });
+  async createStrategy(@CurrentUser() user: { id: string }, @Body() data: CreateStrategyDto) {
+    // Validate using the canonical compiler
+    await this.backtestService.validateStrategyConfiguration({ type: data.type, config: data.configuration }, data.type);
     return this.backtestService.createStrategy(user.id, data);
   }
 
@@ -77,14 +77,10 @@ export class StrategyController {
     if (!s) throw new NotFoundException();
     if (s.userId !== user.id) throw new ForbiddenException();
     
-    // Explicitly validate the typed domain config to prevent arbitrary execution strings
-    if (data.configuration && data.type) {
-      this.strategyEngine.parseStrategyConfiguration({ type: data.type, config: data.configuration });
-    } else if (data.configuration) {
-      this.strategyEngine.parseStrategyConfiguration({ type: s.type, config: data.configuration });
-    } else if (data.type) {
-      this.strategyEngine.parseStrategyConfiguration({ type: data.type, config: s.configuration });
-    }
+    // Validate the updated configuration using canonical compiler
+    const newType = data.type ?? s.type;
+    const newConfig = data.configuration ?? s.configuration;
+    await this.backtestService.validateStrategyConfiguration({ type: newType, config: newConfig }, newType);
 
     return prisma.strategy.update({
       where: { id },

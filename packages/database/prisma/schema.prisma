@@ -268,9 +268,10 @@ model BacktestRun {
   initialCapital Decimal   @db.Decimal(18, 8)
   commissionRate Decimal   @db.Decimal(10, 4)
   status         String // PENDING, RUNNING, COMPLETED, FAILED
-  errorMessage   String?
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
+  errorMessage     String?
+  strategySnapshot Json?
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   strategy   Strategy   @relation(fields: [strategyId], references: [id], onDelete: Cascade)
