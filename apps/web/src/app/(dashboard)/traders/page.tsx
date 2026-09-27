@@ -35,9 +35,21 @@ export default function TradersDiscoveryPage() {
     }
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
-    fetchTraders();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/v1/traders?search=');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setTraders(data.data || []);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {

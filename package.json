@@ -13,6 +13,7 @@
     "postinstall": "pnpm --filter database run db:generate"
   },
   "devDependencies": {
+    "prisma": "5.10.2",
     "turbo": "^2.1.0"
   },
   "packageManager": "pnpm@12.6.0"
