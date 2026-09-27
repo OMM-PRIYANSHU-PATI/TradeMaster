@@ -32,4 +32,10 @@ export class AiController {
   explainStrategy(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.aiService.explainStrategy(user.id, id);
   }
+
+  @Post('trades/:id/review')
+  @HttpCode(HttpStatus.OK)
+  reviewTrade(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.aiService.reviewTrade(user.id, id);
+  }
 }

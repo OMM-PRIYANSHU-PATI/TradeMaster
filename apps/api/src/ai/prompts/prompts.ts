@@ -13,47 +13,5 @@ CRITICAL RULES:
 
 export const COACH_CONTEXT = `
 You are acting as a general trading coach.
-Answer the user's question educational and constructively.
+Answer the user's question educationally and constructively.
 `;
-
-export function buildBacktestContext(backtest: any): string {
-  return `
-Here is the authoritative backtest data:
-Strategy: ${backtest.strategy.name} (${backtest.strategy.type})
-Instrument: ${backtest.instrument.symbol}
-Timeframe: ${backtest.timeframe}
-Period: ${new Date(backtest.startDate).toISOString()} to ${new Date(backtest.endDate).toISOString()}
-
-Metrics:
-- Initial Capital: ${backtest.initialCapital}
-- Final Equity: ${backtest.metrics.finalEquity}
-- Net P&L: ${backtest.metrics.netPnl}
-- Return: ${backtest.metrics.returnPercent}%
-- Total Trades: ${backtest.metrics.totalTrades}
-- Winning Trades: ${backtest.metrics.winningTrades}
-- Losing Trades: ${backtest.metrics.losingTrades}
-- Win Rate: ${backtest.metrics.winRate}%
-- Max Drawdown: ${backtest.metrics.maxDrawdown} (${backtest.metrics.maxDrawdownPercent}%)
-- Total Fees: ${backtest.metrics.totalFees}
-`;
-}
-
-export function buildJournalContext(journals: any[]): string {
-  const summaries = journals.map(j => 
-    `- Entry [${j.id}]: Setup=${j.setup || 'N/A'}, Emotion=${j.emotion || 'N/A'}, Confidence=${j.confidence || 'N/A'}. Entry Reason=${j.entryReason || 'N/A'}. Exit Reason=${j.exitReason || 'N/A'}. Notes=${j.notes || 'N/A'}`
-  ).join('\n');
-
-  return `
-Here is the trader's recent journal data:
-${summaries}
-`;
-}
-
-export function buildStrategyContext(strategy: any): string {
-  return `
-Here is the authoritative strategy configuration:
-Name: ${strategy.name}
-Type: ${strategy.type}
-Configuration: ${JSON.stringify(strategy.configuration, null, 2)}
-`;
-}
