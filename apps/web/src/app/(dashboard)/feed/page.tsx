@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { 
   ThumbsUp, 
   MessageSquare, 
@@ -214,59 +215,61 @@ export default function HomeFeedPage() {
               </div>
 
               {/* Content */}
-              <p className="text-neutral-300 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
-                {post.content}
-              </p>
+              <Link href={`/feed/${post.id}`} className="block hover:opacity-80 transition-opacity">
+                <p className="text-neutral-300 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
+                  {post.content}
+                </p>
 
-              {/* Rich Card */}
-              {post.type !== 'TEXT' && (
-                <div className="mb-4 border border-neutral-800 rounded-lg overflow-hidden">
-                  <div className="bg-neutral-950 p-3 border-b border-neutral-800 flex items-center gap-2">
-                    {post.type === 'STRATEGY' ? <Layers className="w-4 h-4 text-indigo-400" /> :
-                     post.type === 'BACKTEST' ? <History className="w-4 h-4 text-amber-400" /> :
-                     <MonitorPlay className="w-4 h-4 text-emerald-400" />}
-                    <span className="font-medium text-sm text-neutral-200">{post.resourceName}</span>
-                  </div>
-                  
-                  {post.metrics && (
-                    <div className="bg-neutral-900/50 p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {post.metrics.returnPct !== undefined && (
-                        <div>
-                          <div className="text-xs text-neutral-500 mb-1">Total Return</div>
-                          <div className="text-lg font-medium text-emerald-400">+{post.metrics.returnPct}%</div>
-                        </div>
-                      )}
-                      {post.metrics.cagr !== undefined && (
-                        <div>
-                          <div className="text-xs text-neutral-500 mb-1">CAGR</div>
-                          <div className="text-lg font-medium text-neutral-200">{post.metrics.cagr}%</div>
-                        </div>
-                      )}
-                      {post.metrics.winRate !== undefined && (
-                        <div>
-                          <div className="text-xs text-neutral-500 mb-1">Win Rate</div>
-                          <div className="text-lg font-medium text-neutral-200">{post.metrics.winRate}%</div>
-                        </div>
-                      )}
-                      {post.metrics.maxDrawdown !== undefined && (
-                        <div>
-                          <div className="text-xs text-neutral-500 mb-1">Max Drawdown</div>
-                          <div className="text-lg font-medium text-rose-400">{post.metrics.maxDrawdown}%</div>
-                        </div>
-                      )}
+                {/* Rich Card */}
+                {post.type !== 'TEXT' && (
+                  <div className="mb-4 border border-neutral-800 rounded-lg overflow-hidden">
+                    <div className="bg-neutral-950 p-3 border-b border-neutral-800 flex items-center gap-2">
+                      {post.type === 'STRATEGY' ? <Layers className="w-4 h-4 text-indigo-400" /> :
+                       post.type === 'BACKTEST' ? <History className="w-4 h-4 text-amber-400" /> :
+                       <MonitorPlay className="w-4 h-4 text-emerald-400" />}
+                      <span className="font-medium text-sm text-neutral-200">{post.resourceName}</span>
                     </div>
-                  )}
-                  {post.type === 'STRATEGY' && !post.metrics && (
-                    <div className="bg-neutral-900/50 p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm text-neutral-400">
-                        <div className="flex items-center gap-1.5"><Activity className="w-4 h-4" /> Active Status</div>
-                        <div className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Equity focused</div>
+                    
+                    {post.metrics && (
+                      <div className="bg-neutral-900/50 p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {post.metrics.returnPct !== undefined && (
+                          <div>
+                            <div className="text-xs text-neutral-500 mb-1">Total Return</div>
+                            <div className="text-lg font-medium text-emerald-400">+{post.metrics.returnPct}%</div>
+                          </div>
+                        )}
+                        {post.metrics.cagr !== undefined && (
+                          <div>
+                            <div className="text-xs text-neutral-500 mb-1">CAGR</div>
+                            <div className="text-lg font-medium text-neutral-200">{post.metrics.cagr}%</div>
+                          </div>
+                        )}
+                        {post.metrics.winRate !== undefined && (
+                          <div>
+                            <div className="text-xs text-neutral-500 mb-1">Win Rate</div>
+                            <div className="text-lg font-medium text-neutral-200">{post.metrics.winRate}%</div>
+                          </div>
+                        )}
+                        {post.metrics.maxDrawdown !== undefined && (
+                          <div>
+                            <div className="text-xs text-neutral-500 mb-1">Max Drawdown</div>
+                            <div className="text-lg font-medium text-rose-400">{post.metrics.maxDrawdown}%</div>
+                          </div>
+                        )}
                       </div>
-                      <button className="text-sm text-white font-medium hover:underline">View Strategy</button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                    {post.type === 'STRATEGY' && !post.metrics && (
+                      <div className="bg-neutral-900/50 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-sm text-neutral-400">
+                          <div className="flex items-center gap-1.5"><Activity className="w-4 h-4" /> Active Status</div>
+                          <div className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Equity focused</div>
+                        </div>
+                        <span className="text-sm text-white font-medium underline">View Strategy</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Link>
             </div>
 
             {/* Actions */}
