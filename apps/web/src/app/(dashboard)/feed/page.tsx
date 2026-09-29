@@ -1,4 +1,5 @@
-import React from 'react';
+"use client";
+import React, { useState } from 'react';
 import { 
   ThumbsUp, 
   MessageSquare, 
@@ -36,7 +37,7 @@ interface Post {
   comments: number;
 }
 
-const dummyPosts: Post[] = [
+const initialDummyPosts: Post[] = [
   {
     id: '1',
     author: { name: 'Sarah Chen', handle: '@schen_algo', avatar: 'SC' },
@@ -92,6 +93,30 @@ const dummyPosts: Post[] = [
 ];
 
 export default function HomeFeedPage() {
+  const [posts, setPosts] = useState<Post[]>(initialDummyPosts);
+  const [newPostContent, setNewPostContent] = useState("");
+
+  const handlePost = () => {
+    if (!newPostContent.trim()) return;
+
+    const newPost: Post = {
+      id: Date.now().toString(),
+      author: { name: 'Test User', handle: '@test_user', avatar: 'TU' },
+      type: 'TEXT',
+      timestamp: 'Just now',
+      content: newPostContent,
+      likes: 0,
+      comments: 0,
+    };
+
+    setPosts([newPost, ...posts]);
+    setNewPostContent("");
+  };
+
+  const handleLike = (id: string) => {
+    setPosts(posts.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p));
+  };
+
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
       <div className="mb-8">
@@ -102,28 +127,34 @@ export default function HomeFeedPage() {
       {/* New Post Input */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
         <div className="flex gap-4">
-          <div className="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold shrink-0">
-            TM
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+            TU
           </div>
           <div className="flex-1 space-y-3">
             <textarea 
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
               placeholder="Share an insight, strategy, or backtest result..." 
-              className="w-full bg-transparent text-neutral-200 placeholder-neutral-500 border-none focus:ring-0 resize-none"
+              className="w-full bg-transparent text-neutral-200 placeholder-neutral-500 border-none focus:ring-0 resize-none outline-none"
               rows={2}
             />
             <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
               <div className="flex gap-2">
-                <button className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors">
+                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
                   <Layers className="w-4 h-4" />
                 </button>
-                <button className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors">
+                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
                   <History className="w-4 h-4" />
                 </button>
-                <button className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors">
+                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
                   <MonitorPlay className="w-4 h-4" />
                 </button>
               </div>
-              <button className="px-4 py-1.5 bg-white text-black font-medium text-sm rounded-md hover:bg-neutral-200 transition-colors">
+              <button 
+                onClick={handlePost}
+                disabled={!newPostContent.trim()}
+                className="px-4 py-1.5 bg-emerald-500 disabled:opacity-50 text-neutral-950 font-semibold text-sm rounded-md hover:bg-emerald-400 transition-colors"
+              >
                 Post
               </button>
             </div>
@@ -133,7 +164,7 @@ export default function HomeFeedPage() {
 
       {/* Feed */}
       <div className="space-y-4">
-        {dummyPosts.map(post => (
+        {posts.map(post => (
           <div key={post.id} className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
             <div className="p-5">
               {/* Header */}
@@ -225,7 +256,7 @@ export default function HomeFeedPage() {
 
             {/* Actions */}
             <div className="px-5 py-3 border-t border-neutral-800 flex items-center justify-between text-neutral-400">
-              <button className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
+              <button onClick={() => handleLike(post.id)} className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
                 <ThumbsUp className="w-4 h-4" /> {post.likes}
               </button>
               <button className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
