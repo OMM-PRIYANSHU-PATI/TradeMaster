@@ -97,6 +97,7 @@ const initialDummyPosts: Post[] = [
 export default function HomeFeedPage() {
   const [posts, setPosts] = useState<Post[]>(initialDummyPosts);
   const [newPostContent, setNewPostContent] = useState("");
+  const [activeType, setActiveType] = useState<PostType>('TEXT');
 
   const handlePost = () => {
     if (!newPostContent.trim()) return;
@@ -104,15 +105,17 @@ export default function HomeFeedPage() {
     const newPost: Post = {
       id: Date.now().toString(),
       author: { name: 'Test User', handle: '@test_user', avatar: 'TU' },
-      type: 'TEXT',
+      type: activeType,
       timestamp: 'Just now',
       content: newPostContent,
+      resourceName: activeType !== 'TEXT' ? `Attached ${activeType.toLowerCase()} link` : undefined,
       likes: 0,
       comments: 0,
     };
 
     setPosts([newPost, ...posts]);
     setNewPostContent("");
+    setActiveType('TEXT'); // reset after posting
   };
 
   // Define action handlers
@@ -150,19 +153,55 @@ export default function HomeFeedPage() {
             <textarea 
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder="Share an insight, strategy, or backtest result..." 
+              placeholder={
+                activeType === 'STRATEGY' ? "Share your strategy logic or ideas..." :
+                activeType === 'BACKTEST' ? "Share your backtest performance insights..." :
+                activeType === 'VIRTUAL' ? "Share your virtual trading forward-test results..." :
+                "Share an insight, strategy, or backtest result..."
+              }
               className="w-full bg-transparent text-neutral-200 placeholder-neutral-500 border-none focus:ring-0 resize-none outline-none"
               rows={2}
             />
+            {activeType !== 'TEXT' && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-neutral-950 rounded-md border border-neutral-800 w-fit">
+                {activeType === 'STRATEGY' && <Layers className="w-4 h-4 text-indigo-400" />}
+                {activeType === 'BACKTEST' && <History className="w-4 h-4 text-amber-400" />}
+                {activeType === 'VIRTUAL' && <MonitorPlay className="w-4 h-4 text-emerald-400" />}
+                <span className="text-xs font-medium text-neutral-300">
+                  Select {activeType.toLowerCase()} to attach...
+                </span>
+                <button 
+                  onClick={() => setActiveType('TEXT')}
+                  className="ml-2 text-neutral-500 hover:text-rose-400 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-2 border-t border-neutral-800">
               <div className="flex gap-2">
-                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
+                <button 
+                  type="button" 
+                  onClick={() => setActiveType(activeType === 'STRATEGY' ? 'TEXT' : 'STRATEGY')}
+                  className={`p-2 rounded-md transition-colors ${activeType === 'STRATEGY' ? 'text-indigo-400 bg-indigo-500/10' : 'text-neutral-400 hover:text-indigo-400 hover:bg-indigo-500/10'}`}
+                  title="Attach Strategy"
+                >
                   <Layers className="w-4 h-4" />
                 </button>
-                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
+                <button 
+                  type="button" 
+                  onClick={() => setActiveType(activeType === 'BACKTEST' ? 'TEXT' : 'BACKTEST')}
+                  className={`p-2 rounded-md transition-colors ${activeType === 'BACKTEST' ? 'text-amber-400 bg-amber-500/10' : 'text-neutral-400 hover:text-amber-400 hover:bg-amber-500/10'}`}
+                  title="Attach Backtest"
+                >
                   <History className="w-4 h-4" />
                 </button>
-                <button type="button" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-colors">
+                <button 
+                  type="button" 
+                  onClick={() => setActiveType(activeType === 'VIRTUAL' ? 'TEXT' : 'VIRTUAL')}
+                  className={`p-2 rounded-md transition-colors ${activeType === 'VIRTUAL' ? 'text-emerald-400 bg-emerald-500/10' : 'text-neutral-400 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                  title="Attach Virtual Session"
+                >
                   <MonitorPlay className="w-4 h-4" />
                 </button>
               </div>
