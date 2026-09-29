@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className="flex h-screen bg-neutral-950 text-neutral-100 font-sans">
+    <div suppressHydrationWarning className="flex h-screen bg-neutral-950 text-neutral-100 font-sans">
       {/* Sidebar */}
       <aside className="w-64 border-r border-neutral-800 bg-neutral-950/50 backdrop-blur flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-neutral-800">
