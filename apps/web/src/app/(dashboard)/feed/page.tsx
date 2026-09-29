@@ -35,6 +35,7 @@ interface Post {
   resourceName?: string;
   likes: number;
   comments: number;
+  saved?: boolean;
 }
 
 const initialDummyPosts: Post[] = [
@@ -113,8 +114,22 @@ export default function HomeFeedPage() {
     setNewPostContent("");
   };
 
+  // Define action handlers
   const handleLike = (id: string) => {
     setPosts(posts.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p));
+  };
+
+  const handleSave = (id: string) => {
+    setPosts(posts.map(p => p.id === id ? { ...p, saved: !p.saved } : p));
+  };
+
+  const handleShare = () => {
+    alert("Post link copied to clipboard!");
+  };
+
+  const handleComment = (id: string) => {
+    // For now just increment comments to show interactivity
+    setPosts(posts.map(p => p.id === id ? { ...p, comments: p.comments + 1 } : p));
   };
 
   return (
@@ -199,7 +214,7 @@ export default function HomeFeedPage() {
               </div>
 
               {/* Content */}
-              <p className="text-neutral-300 text-sm leading-relaxed mb-4">
+              <p className="text-neutral-300 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
                 {post.content}
               </p>
 
@@ -256,17 +271,17 @@ export default function HomeFeedPage() {
 
             {/* Actions */}
             <div className="px-5 py-3 border-t border-neutral-800 flex items-center justify-between text-neutral-400">
-              <button onClick={() => handleLike(post.id)} className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
+              <button onClick={() => handleLike(post.id)} className="flex items-center gap-2 hover:text-emerald-400 transition-colors text-sm font-medium">
                 <ThumbsUp className="w-4 h-4" /> {post.likes}
               </button>
-              <button className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
+              <button onClick={() => handleComment(post.id)} className="flex items-center gap-2 hover:text-blue-400 transition-colors text-sm font-medium">
                 <MessageSquare className="w-4 h-4" /> {post.comments}
               </button>
-              <button className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
+              <button onClick={handleShare} className="flex items-center gap-2 hover:text-indigo-400 transition-colors text-sm font-medium">
                 <Share2 className="w-4 h-4" /> Share
               </button>
-              <button className="flex items-center gap-2 hover:text-white transition-colors text-sm font-medium">
-                <Bookmark className="w-4 h-4" /> Save
+              <button onClick={() => handleSave(post.id)} className={`flex items-center gap-2 transition-colors text-sm font-medium ${post.saved ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+                <Bookmark className={`w-4 h-4 ${post.saved ? 'fill-amber-400' : ''}`} /> {post.saved ? 'Saved' : 'Save'}
               </button>
             </div>
           </div>
